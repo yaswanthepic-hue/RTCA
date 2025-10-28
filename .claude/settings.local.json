@@ -24,7 +24,10 @@
       "Bash(taskkill //F //PID 21848)",
       "Bash(tasklist:*)",
       "Bash(taskkill:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

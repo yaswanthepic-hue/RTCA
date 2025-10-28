@@ -416,6 +416,9 @@ const ChatWindow = ({ selectedUser, onBack }) => {
                   setErrorMessage(msg);
                   setTimeout(() => setErrorMessage(''), 3000);
                 }}
+                onDelete={(messageId) => {
+                  setMessages(prev => prev.filter(m => m._id !== messageId));
+                }}
               />
             </div>
           ))

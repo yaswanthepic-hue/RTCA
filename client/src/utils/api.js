@@ -77,6 +77,7 @@ export const messageAPI = {
   },
   pinMessage: (messageId) => api.post(`/messages/${messageId}/pin`),
   unpinMessage: (messageId) => api.post(`/messages/${messageId}/unpin`),
+  deleteMessage: (messageId) => api.delete(`/messages/${messageId}`),
   getPinnedMessages: (userId) => api.get(`/messages/conversation/${userId}/pinned`),
   getSharedMedia: (userId) => api.get(`/messages/conversation/${userId}/media`),
   getUnreadCount: () => api.get('/messages/unread-count'),

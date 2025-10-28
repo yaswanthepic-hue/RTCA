@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { messageAPI, authAPI } from '../utils/api';
 import './MessageItem.css';
 
-const MessageItem = ({ message, isSent, onError }) => {
+const MessageItem = ({ message, isSent, onError, onDelete }) => {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -27,6 +27,7 @@ const MessageItem = ({ message, isSent, onError }) => {
 
   const handleContextMenu = (e) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent ChatWindow context menu from showing
     setContextMenuPos({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
   };
@@ -65,8 +66,9 @@ const MessageItem = ({ message, isSent, onError }) => {
 
   const confirmDeleteMessage = async () => {
     try {
-      await messageAPI.deleteMessage?.(message._id);
+      await messageAPI.deleteMessage(message._id);
       setShowDeleteConfirm(false);
+      if (onDelete) onDelete(message._id); // Notify parent to remove message from list
       if (onError) onError('Message deleted');
     } catch (error) {
       console.error('Delete message error:', error);
@@ -243,12 +245,6 @@ const MessageItem = ({ message, isSent, onError }) => {
             style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={handleStarMessage} className="context-menu-item">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-              Star Message
-            </button>
             <button onClick={handlePinMessage} className="context-menu-item">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>

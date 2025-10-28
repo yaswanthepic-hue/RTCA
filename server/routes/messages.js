@@ -328,4 +328,33 @@ router.get('/unread-per-conversation', auth, async (req, res) => {
   }
 });
 
+// Delete message (only sender can delete their own messages)
+router.delete('/:messageId', auth, async (req, res) => {
+  try {
+    const message = await Message.findOne({
+      _id: req.params.messageId,
+      sender: req.userId
+    });
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found or unauthorized' });
+    }
+
+    // If message has a file, delete the file from disk
+    if (message.fileUrl) {
+      const filePath = path.join(__dirname, '..', message.fileUrl);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    await Message.deleteOne({ _id: req.params.messageId });
+
+    res.json({ message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('Delete message error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
