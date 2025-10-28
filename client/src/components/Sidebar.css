@@ -277,8 +277,21 @@
 }
 
 .pin-icon {
-  font-size: 0.75rem;
-  opacity: 0.8;
+  font-size: 0.9rem;
+  color: var(--neon-orange);
+  filter: drop-shadow(0 0 3px rgba(255, 107, 53, 0.5));
+  animation: pinPulse 2s ease-in-out infinite;
+}
+
+@keyframes pinPulse {
+  0%, 100% {
+    opacity: 0.9;
+    transform: rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(-5deg);
+  }
 }
 
 .conv-header h4 {

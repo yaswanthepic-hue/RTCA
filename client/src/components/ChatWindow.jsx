@@ -20,6 +20,10 @@ const ChatWindow = ({ selectedUser, onBack }) => {
   const [sharedMedia, setSharedMedia] = useState([]);
   const [isPinned, setIsPinned] = useState(false);
   const [firstUnreadIndex, setFirstUnreadIndex] = useState(-1);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+  const [errorMessage, setErrorMessage] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -89,25 +93,18 @@ const ChatWindow = ({ selectedUser, onBack }) => {
 
   const loadMessages = async () => {
     setLoading(true);
+    setMessages([]); // Clear old messages immediately for faster perceived load
     try {
       const response = await messageAPI.getConversation(selectedUser._id);
       const msgs = response.data;
       setMessages(msgs);
 
-      // Find first unread message (recipient is me and isRead is false)
-      const unreadIndex = msgs.findIndex(
-        (msg) => msg.recipient._id === user.id && !msg.isRead
-      );
-      setFirstUnreadIndex(unreadIndex);
-
-      // Scroll to first unread or bottom
-      if (unreadIndex !== -1) {
-        scrollToFirstUnread();
-      } else {
-        scrollToBottom();
-      }
+      // Scroll to bottom immediately (removed unread logic per user request)
+      setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error('Load messages error:', error);
+      setErrorMessage('Failed to load messages');
+      setTimeout(() => setErrorMessage(''), 3000);
     } finally {
       setLoading(false);
     }
@@ -272,7 +269,8 @@ const ChatWindow = ({ selectedUser, onBack }) => {
       setIsRecording(true);
     } catch (error) {
       console.error('Recording error:', error);
-      alert('Could not access microphone');
+      setErrorMessage('Could not access microphone');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
@@ -297,18 +295,6 @@ const ChatWindow = ({ selectedUser, onBack }) => {
     }
   };
 
-  const handleBlockUser = async () => {
-    if (!confirm(`Are you sure you want to block ${selectedUser.username}?`)) return;
-
-    try {
-      await authAPI.blockUser(selectedUser._id);
-      alert(`${selectedUser.username} has been blocked`);
-      window.location.reload();
-    } catch (error) {
-      console.error('Block user error:', error);
-    }
-  };
-
   const handleViewSharedMedia = async () => {
     try {
       const response = await messageAPI.getSharedMedia(selectedUser._id);
@@ -316,7 +302,42 @@ const ChatWindow = ({ selectedUser, onBack }) => {
       setShowSharedMedia(true);
     } catch (error) {
       console.error('Load shared media error:', error);
-      alert('Failed to load shared media');
+      setErrorMessage('Failed to load shared media');
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
+  };
+
+  const handleRightClick = (e) => {
+    e.preventDefault();
+    setContextMenuPos({ x: e.clientX, y: e.clientY });
+    setShowContextMenu(true);
+  };
+
+  const handleCloseChat = () => {
+    setShowContextMenu(false);
+    if (onBack) {
+      onBack();
+    }
+  };
+
+  const handleDeleteChat = () => {
+    setShowContextMenu(false);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteChat = async () => {
+    try {
+      // Delete all messages with this user
+      await Promise.all(
+        messages.map(msg => messageAPI.deleteMessage?.(msg._id))
+      );
+      setShowDeleteConfirm(false);
+      setMessages([]);
+      if (onBack) onBack();
+    } catch (error) {
+      console.error('Delete chat error:', error);
+      setErrorMessage('Failed to delete chat');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
@@ -368,16 +389,14 @@ const ChatWindow = ({ selectedUser, onBack }) => {
               <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>
             </svg>
           </button>
-          <button onClick={handleBlockUser} className="action-btn danger" title="Block User">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
-            </svg>
-          </button>
         </div>
       </div>
 
-      <div className="messages-container">
+      <div
+        className="messages-container"
+        onContextMenu={handleRightClick}
+        onClick={() => setShowContextMenu(false)}
+      >
         {loading ? (
           <div className="loading-messages">
             <div className="spinner"></div>
@@ -390,17 +409,13 @@ const ChatWindow = ({ selectedUser, onBack }) => {
         ) : (
           messages.map((message, index) => (
             <div key={message._id}>
-              {/* Show unread divider before first unread message */}
-              {firstUnreadIndex === index && firstUnreadIndex !== -1 && (
-                <div className="unread-divider">
-                  <span className="unread-divider-line"></span>
-                  <span className="unread-divider-text">Unread Messages</span>
-                  <span className="unread-divider-line"></span>
-                </div>
-              )}
               <MessageItem
                 message={message}
                 isSent={message.sender._id === user.id}
+                onError={(msg) => {
+                  setErrorMessage(msg);
+                  setTimeout(() => setErrorMessage(''), 3000);
+                }}
               />
             </div>
           ))
@@ -544,6 +559,55 @@ const ChatWindow = ({ selectedUser, onBack }) => {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Context Menu for Right Click */}
+      {showContextMenu && (
+        <div
+          className="context-menu"
+          style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="context-menu-item" onClick={handleCloseChat}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            Close Chat
+          </button>
+          <button className="context-menu-item danger" onClick={handleDeleteChat}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            Delete Chat
+          </button>
+        </div>
+      )}
+
+      {/* Error Toast */}
+      {errorMessage && (
+        <div className="error-toast">
+          {errorMessage}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Delete Chat?</h3>
+            <p>Are you sure you want to delete all messages with {selectedUser.username}? This cannot be undone.</p>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </button>
+              <button className="delete-btn" onClick={confirmDeleteChat}>
+                Delete
+              </button>
             </div>
           </div>
         </div>

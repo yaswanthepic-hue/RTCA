@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { messageAPI, authAPI } from '../utils/api';
 import './MessageItem.css';
 
-const MessageItem = ({ message, isSent }) => {
+const MessageItem = ({ message, isSent, onError }) => {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const API_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
   const getMessageContent = () => {
     return message.content || '[No content]';
   };
@@ -32,9 +35,10 @@ const MessageItem = ({ message, isSent }) => {
     try {
       await authAPI.starMessage(message._id);
       setShowContextMenu(false);
-      alert('Message starred!');
+      if (onError) onError('Message starred!');
     } catch (error) {
       console.error('Star message error:', error);
+      if (onError) onError('Failed to star message');
     }
   };
 
@@ -42,23 +46,33 @@ const MessageItem = ({ message, isSent }) => {
     try {
       if (message.isPinned) {
         await messageAPI.unpinMessage(message._id);
-        alert('Message unpinned!');
+        if (onError) onError('Message unpinned!');
       } else {
         await messageAPI.pinMessage(message._id);
-        alert('Message pinned!');
+        if (onError) onError('Message pinned!');
       }
       setShowContextMenu(false);
     } catch (error) {
       console.error('Pin message error:', error);
+      if (onError) onError('Failed to pin message');
     }
   };
 
-  const handleDeleteMessage = async () => {
-    if (!confirm('Are you sure you want to delete this message?')) return;
-
+  const handleDeleteMessage = () => {
     setShowContextMenu(false);
-    // TODO: Implement delete message on backend
-    alert('Delete functionality coming soon');
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteMessage = async () => {
+    try {
+      await messageAPI.deleteMessage?.(message._id);
+      setShowDeleteConfirm(false);
+      if (onError) onError('Message deleted');
+    } catch (error) {
+      console.error('Delete message error:', error);
+      if (onError) onError('Failed to delete message');
+      setShowDeleteConfirm(false);
+    }
   };
 
   const renderContent = () => {
@@ -70,9 +84,13 @@ const MessageItem = ({ message, isSent }) => {
       return (
         <div className="message-media">
           <img
-            src={`http://localhost:5000${message.fileUrl}`}
+            src={`${API_URL}${message.fileUrl}`}
             alt={message.fileName}
             className="message-image"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.parentNode.innerHTML = '<div class="media-error">Failed to load image</div>';
+            }}
           />
           <p className="media-caption">{getMessageContent()}</p>
         </div>
@@ -83,9 +101,13 @@ const MessageItem = ({ message, isSent }) => {
       return (
         <div className="message-media">
           <video
-            src={`http://localhost:5000${message.fileUrl}`}
+            src={`${API_URL}${message.fileUrl}`}
             controls
             className="message-video"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.parentNode.innerHTML = '<div class="media-error">Failed to load video</div>';
+            }}
           />
           <p className="media-caption">{getMessageContent()}</p>
         </div>
@@ -95,7 +117,15 @@ const MessageItem = ({ message, isSent }) => {
     if (message.messageType === 'audio' || message.messageType === 'voice') {
       return (
         <div className="message-media">
-          <audio src={`http://localhost:5000${message.fileUrl}`} controls className="message-audio" />
+          <audio
+            src={`${API_URL}${message.fileUrl}`}
+            controls
+            className="message-audio"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.parentNode.innerHTML = '<div class="media-error">Failed to load audio</div>';
+            }}
+          />
           <p className="media-caption">{getMessageContent()}</p>
         </div>
       );
@@ -104,7 +134,15 @@ const MessageItem = ({ message, isSent }) => {
     if (message.messageType === 'sticker') {
       return (
         <div className="message-sticker">
-          <img src={`http://localhost:5000${message.fileUrl}`} alt="Sticker" className="sticker-image" />
+          <img
+            src={`${API_URL}${message.fileUrl}`}
+            alt="Sticker"
+            className="sticker-image"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.parentNode.innerHTML = '<div class="media-error">Failed to load sticker</div>';
+            }}
+          />
         </div>
       );
     }
@@ -112,7 +150,15 @@ const MessageItem = ({ message, isSent }) => {
     if (message.messageType === 'gif') {
       return (
         <div className="message-gif">
-          <img src={`http://localhost:5000${message.fileUrl}`} alt="GIF" className="gif-image" />
+          <img
+            src={`${API_URL}${message.fileUrl}`}
+            alt="GIF"
+            className="gif-image"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.parentNode.innerHTML = '<div class="media-error">Failed to load GIF</div>';
+            }}
+          />
         </div>
       );
     }
@@ -120,18 +166,25 @@ const MessageItem = ({ message, isSent }) => {
     // Generic file
     return (
       <a
-        href={`http://localhost:5000${message.fileUrl}`}
+        href={`${API_URL}${message.fileUrl}`}
         download={message.fileName}
         className="message-file"
         target="_blank"
         rel="noopener noreferrer"
       >
-        <div className="file-icon">📄</div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="file-icon">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <polyline points="13 2 13 9 20 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
         <div className="file-info">
           <p className="file-name">{message.fileName}</p>
           <p className="file-size">{formatFileSize(message.fileSize)}</p>
         </div>
-        <div className="download-icon">⬇️</div>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="download-icon">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </a>
     );
   };
@@ -150,13 +203,32 @@ const MessageItem = ({ message, isSent }) => {
           />
         )}
         <div className="message-bubble">
-          {message.isPinned && <div className="pin-indicator">📌 Pinned</div>}
+          {message.isPinned && (
+            <div className="pin-indicator">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Pinned
+            </div>
+          )}
           {renderContent()}
           <div className="message-meta">
             <span className="message-time">{formatTime(message.createdAt)}</span>
             {isSent && (
               <span className={`message-status ${message.isRead ? 'read' : message.createdAt ? 'delivered' : 'sent'}`}>
-                {message.isRead ? '✓✓' : '✓✓'}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  {message.isRead ? (
+                    <>
+                      <polyline points="9 11 12 14 22 4"/>
+                      <polyline points="4 11 7 14 17 4"/>
+                    </>
+                  ) : (
+                    <>
+                      <polyline points="9 11 12 14 22 4"/>
+                      <polyline points="4 11 7 14 17 4" opacity="0.4"/>
+                    </>
+                  )}
+                </svg>
               </span>
             )}
           </div>
@@ -169,23 +241,49 @@ const MessageItem = ({ message, isSent }) => {
           <div
             className="message-context-menu"
             style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
+            onClick={(e) => e.stopPropagation()}
           >
             <button onClick={handleStarMessage} className="context-menu-item">
-              <span>⭐</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
               Star Message
             </button>
             <button onClick={handlePinMessage} className="context-menu-item">
-              <span>📌</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
               {message.isPinned ? 'Unpin' : 'Pin'} Message
             </button>
             {isSent && (
               <button onClick={handleDeleteMessage} className="context-menu-item danger">
-                <span>🗑️</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
                 Delete Message
               </button>
             )}
           </div>
         </>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Delete Message?</h3>
+            <p>Are you sure you want to delete this message? This cannot be undone.</p>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </button>
+              <button className="delete-btn" onClick={confirmDeleteMessage}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
