@@ -115,7 +115,7 @@ const Sidebar = ({ selectedUser, onSelectUser, onShowUserList, onConversationsUp
     conv.user.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Sort: pinned chats at top, then by last message time
+  // Sort: pinned chats at top, then by last message time (most recent first)
   filteredConversations.sort((a, b) => {
     const aPinned = isPinned(a._id);
     const bPinned = isPinned(b._id);
@@ -123,8 +123,10 @@ const Sidebar = ({ selectedUser, onSelectUser, onShowUserList, onConversationsUp
     if (aPinned && !bPinned) return -1;
     if (!aPinned && bPinned) return 1;
 
-    // Both pinned or both not pinned, sort by time
-    return 0;
+    // Both pinned or both not pinned, sort by most recent message time
+    const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+    const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+    return bTime - aTime; // Most recent first
   });
 
   return (
