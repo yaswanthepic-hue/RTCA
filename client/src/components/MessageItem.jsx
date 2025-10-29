@@ -217,18 +217,23 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
           <div className="message-meta">
             <span className="message-time">{formatTime(message.createdAt)}</span>
             {isSent && (
-              <span className={`message-status ${message.isRead ? 'read' : message.createdAt ? 'delivered' : 'sent'}`}>
+              <span className={`message-status ${message.isRead ? 'read' : message.deliveredAt ? 'delivered' : 'sent'}`}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   {message.isRead ? (
+                    // Blue double tick - message read
+                    <>
+                      <polyline points="9 11 12 14 22 4"/>
+                      <polyline points="4 11 7 14 17 4"/>
+                    </>
+                  ) : message.deliveredAt ? (
+                    // Gray double tick - message delivered
                     <>
                       <polyline points="9 11 12 14 22 4"/>
                       <polyline points="4 11 7 14 17 4"/>
                     </>
                   ) : (
-                    <>
-                      <polyline points="9 11 12 14 22 4"/>
-                      <polyline points="4 11 7 14 17 4" opacity="0.4"/>
-                    </>
+                    // Gray single tick - message sent
+                    <polyline points="9 11 12 14 22 4"/>
                   )}
                 </svg>
               </span>

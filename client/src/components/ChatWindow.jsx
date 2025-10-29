@@ -63,6 +63,27 @@ const ChatWindow = ({ selectedUser, onBack }) => {
       }
     };
 
+    const handleMessageSent = (data) => {
+      console.log('Message sent:', data);
+      // Update temporary message with real message from server
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.tempId === data.tempId ? data.message : msg
+        )
+      );
+    };
+
+    const handleMessageDelivered = (data) => {
+      console.log('Message delivered:', data);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === data.messageId
+            ? { ...msg, deliveredAt: data.deliveredAt }
+            : msg
+        )
+      );
+    };
+
     const handleMessageStatusUpdate = (data) => {
       console.log('Message status update:', data);
       setMessages((prev) =>
@@ -81,11 +102,15 @@ const ChatWindow = ({ selectedUser, onBack }) => {
     };
 
     socket.on('receiveMessage', handleReceiveMessage);
+    socket.on('messageSent', handleMessageSent);
+    socket.on('messageDelivered', handleMessageDelivered);
     socket.on('messageStatusUpdate', handleMessageStatusUpdate);
     socket.on('userTyping', handleUserTyping);
 
     return () => {
       socket.off('receiveMessage', handleReceiveMessage);
+      socket.off('messageSent', handleMessageSent);
+      socket.off('messageDelivered', handleMessageDelivered);
       socket.off('messageStatusUpdate', handleMessageStatusUpdate);
       socket.off('userTyping', handleUserTyping);
     };
@@ -176,11 +201,14 @@ const ChatWindow = ({ selectedUser, onBack }) => {
       // Optimistically add to UI
       const tempMessage = {
         _id: tempId,
+        tempId: tempId,
         sender: { _id: user.id, username: user.username, avatar: user.avatar },
         recipient: selectedUser,
         content: messageText,  // Plain text
         messageType: 'text',
         createdAt: new Date().toISOString(),
+        deliveredAt: null,  // Will be set when recipient is online
+        isRead: false,
       };
 
       setMessages((prev) => [...prev, tempMessage]);

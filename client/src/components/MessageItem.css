@@ -174,14 +174,23 @@
   font-size: 0.85rem;
   color: var(--text-secondary);
   transition: color 0.3s ease;
+  display: flex;
+  align-items: center;
+}
+
+.message-status.sent {
+  color: var(--text-secondary);
+  opacity: 0.6;
 }
 
 .message-status.delivered {
   color: var(--text-secondary);
+  opacity: 0.8;
 }
 
 .message-status.read {
   color: #4fc3f7;
+  opacity: 1;
 }
 
 .message-sticker,

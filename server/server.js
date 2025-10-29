@@ -109,6 +109,10 @@ io.on('connection', (socket) => {
     try {
       const { recipientId, content, encryptedContent, messageType, fileUrl, fileName, fileSize } = data;
 
+      // Check if recipient is online
+      const recipientSocketId = connectedUsers.get(recipientId);
+      const isRecipientOnline = !!recipientSocketId;
+
       // Save message to database
       const message = new Message({
         sender: socket.userId,
@@ -119,7 +123,7 @@ io.on('connection', (socket) => {
         fileUrl: fileUrl || '',
         fileName: fileName || '',
         fileSize: fileSize || 0,
-        deliveredAt: Date.now()
+        deliveredAt: isRecipientOnline ? Date.now() : null  // Only set if recipient is online
       });
 
       await message.save();
@@ -129,13 +133,18 @@ io.on('connection', (socket) => {
       await message.populate('recipient', 'username avatar');
 
       // Send to recipient if online
-      const recipientSocketId = connectedUsers.get(recipientId);
       if (recipientSocketId) {
         io.to(recipientSocketId).emit('receiveMessage', message);
+
+        // Notify sender that message was delivered
+        socket.emit('messageDelivered', {
+          messageId: message._id,
+          deliveredAt: message.deliveredAt
+        });
       }
 
-      // Send acknowledgment to sender
-      socket.emit('messageDelivered', {
+      // Send acknowledgment to sender (message sent/saved)
+      socket.emit('messageSent', {
         tempId: data.tempId,
         message
       });
