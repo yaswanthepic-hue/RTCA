@@ -91,7 +91,10 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
             className="message-image"
             onError={(e) => {
               e.target.style.display = 'none';
-              e.target.parentNode.innerHTML = '<div class="media-error">Failed to load image</div>';
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'media-error';
+              errorDiv.innerHTML = '🖼️ Image (file temporarily unavailable)';
+              e.target.parentNode.insertBefore(errorDiv, e.target);
             }}
           />
           <p className="media-caption">{getMessageContent()}</p>
@@ -108,7 +111,10 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
             className="message-video"
             onError={(e) => {
               e.target.style.display = 'none';
-              e.target.parentNode.innerHTML = '<div class="media-error">Failed to load video</div>';
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'media-error';
+              errorDiv.innerHTML = '🎥 Video (file temporarily unavailable)';
+              e.target.parentNode.insertBefore(errorDiv, e.target);
             }}
           />
           <p className="media-caption">{getMessageContent()}</p>
@@ -125,7 +131,10 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
             className="message-audio"
             onError={(e) => {
               e.target.style.display = 'none';
-              e.target.parentNode.innerHTML = '<div class="media-error">Failed to load audio</div>';
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'media-error';
+              errorDiv.innerHTML = '🎤 Voice message (file temporarily unavailable)';
+              e.target.parentNode.insertBefore(errorDiv, e.target);
             }}
           />
           <p className="media-caption">{getMessageContent()}</p>
