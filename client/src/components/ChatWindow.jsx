@@ -99,6 +99,15 @@ const ChatWindow = ({ selectedUser, onBack }) => {
       const msgs = response.data;
       setMessages(msgs);
 
+      // Mark all unread messages from this user as read
+      if (socket) {
+        msgs.forEach(msg => {
+          if (msg.recipient._id === user.id && !msg.isRead) {
+            socket.emit('markAsRead', { messageId: msg._id });
+          }
+        });
+      }
+
       // Scroll to bottom immediately (removed unread logic per user request)
       setTimeout(scrollToBottom, 100);
     } catch (error) {
