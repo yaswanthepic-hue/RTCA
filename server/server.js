@@ -16,10 +16,13 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: [process.env.CLIENT_URL, 'https://rtca-livid.vercel.app', 'http://localhost:5173'].filter(Boolean),
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  connectTimeout: 45000,
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 // Connect to MongoDB
@@ -27,7 +30,7 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: [process.env.CLIENT_URL, 'https://rtca-livid.vercel.app', 'http://localhost:5173'].filter(Boolean),
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
