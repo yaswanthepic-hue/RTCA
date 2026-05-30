@@ -27,7 +27,7 @@ const Sidebar = ({ selectedUser, onSelectUser, onShowUserList, onConversationsUp
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('receiveMessage', (message) => {
+    const handleReceiveMessage = (message) => {
       updateConversations(message);
 
       // Mark chat as unread if I'm the recipient and chat is not currently open
@@ -37,10 +37,18 @@ const Sidebar = ({ selectedUser, onSelectUser, onShowUserList, onConversationsUp
           setUnreadChats(prev => new Set(prev).add(senderId));
         }
       }
-    });
+    };
+
+    const handleMessageSent = (data) => {
+      updateConversations(data.message);
+    };
+
+    socket.on('receiveMessage', handleReceiveMessage);
+    socket.on('messageSent', handleMessageSent);
 
     return () => {
-      socket.off('receiveMessage');
+      socket.off('receiveMessage', handleReceiveMessage);
+      socket.off('messageSent', handleMessageSent);
     };
   }, [socket, selectedUser, user.id]);
 

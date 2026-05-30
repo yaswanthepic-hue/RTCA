@@ -755,3 +755,171 @@
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(255, 107, 53, 0.5);
 }
+
+/* ── File / Voice Preview Modal ── */
+.preview-modal {
+  background: var(--dark-card);
+  border: 1px solid var(--border-glow);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.3s ease;
+  overflow: hidden;
+}
+
+.file-preview-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: var(--dark-bg);
+}
+
+.file-preview-image {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.file-preview-video {
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: 8px;
+}
+
+.file-preview-audio {
+  width: 100%;
+}
+
+.file-preview-generic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+.file-preview-name {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  word-break: break-all;
+  text-align: center;
+}
+
+.file-preview-size {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.file-caption-row {
+  padding: 1rem 1.5rem 0;
+}
+
+.file-caption-input {
+  width: 100%;
+  background: var(--dark-bg);
+  border: 1px solid var(--border-glow);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.file-caption-input:focus {
+  border-color: var(--neon-teal);
+  outline: none;
+  box-shadow: 0 0 8px var(--shadow-glow);
+}
+
+.file-caption-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.send-file-btn {
+  background: linear-gradient(135deg, var(--neon-teal) 0%, var(--neon-orange) 100%);
+  color: var(--dark-bg);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.send-file-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px var(--shadow-glow);
+}
+
+.send-file-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Voice Preview ── */
+.voice-preview-body {
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: var(--dark-bg);
+}
+
+.voice-preview-icon {
+  font-size: 3rem;
+}
+
+.voice-preview-audio {
+  width: 100%;
+}
+
+.voice-preview-duration {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* ── Recording Banner ── */
+.recording-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1.5rem;
+  background: rgba(255, 107, 53, 0.1);
+  border-top: 1px solid var(--neon-orange);
+  color: var(--neon-orange);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--neon-orange);
+  animation: pulse-record 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.recording-stop-btn {
+  margin-left: auto;
+  background: var(--neon-orange);
+  color: var(--dark-bg);
+  border: none;
+  padding: 0.35rem 0.9rem;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.recording-stop-btn:hover {
+  opacity: 0.85;
+}

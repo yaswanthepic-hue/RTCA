@@ -8,6 +8,7 @@ const router = express.Router();
 
 // Register
 router.post('/register', async (req, res) => {
+  console.log('Register request received:', req.body);
   try {
     const { username, email, password } = req.body;
 
@@ -53,8 +54,12 @@ router.post('/register', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({ error: 'Server error during registration' });
+    if (error.name === 'ValidationError') {
+      console.error('Validation Error:', error.errors);
+      return res.status(400).json({ error: Object.values(error.errors).map(e => e.message).join(', ') });
+    }
+    console.error('Register error details:', error);
+    res.status(500).json({ error: error.message || 'Server error during registration' });
   }
 });
 

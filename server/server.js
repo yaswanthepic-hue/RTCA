@@ -14,9 +14,21 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'https://rtca-livid.vercel.app',
+].filter(Boolean);
+
+const corsOriginFn = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (/^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
+  if (allowedOrigins.includes(origin)) return callback(null, true);
+  callback(new Error('CORS blocked: ' + origin));
+};
+
 const io = socketIo(server, {
   cors: {
-    origin: [process.env.CLIENT_URL, 'https://rtca-livid.vercel.app', 'http://localhost:5173'].filter(Boolean),
+    origin: corsOriginFn,
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -25,12 +37,14 @@ const io = socketIo(server, {
   pingInterval: 25000
 });
 
+app.set('io', io);
+
 // Connect to MongoDB
 connectDB();
 
 // Middleware
 app.use(cors({
-  origin: [process.env.CLIENT_URL, 'https://rtca-livid.vercel.app', 'http://localhost:5173'].filter(Boolean),
+  origin: corsOriginFn,
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -120,7 +134,7 @@ io.on('connection', (socket) => {
       const message = new Message({
         sender: socket.userId,
         recipient: recipientId,
-        content: content || encryptedContent,  // Support both plain and encrypted
+        content: content || encryptedContent || '',  // empty string allowed for file-only messages
         encryptedContent: encryptedContent,
         messageType: messageType || 'text',
         fileUrl: fileUrl || '',
@@ -135,11 +149,14 @@ io.on('connection', (socket) => {
       await message.populate('sender', 'username avatar');
       await message.populate('recipient', 'username avatar');
 
-      // Send to recipient if online
-      if (recipientSocketId) {
-        io.to(recipientSocketId).emit('receiveMessage', message);
+      // Send to recipient
+      io.to(recipientId).emit('receiveMessage', message);
 
-        // Notify sender that message was delivered
+      // Also send to all OTHER of sender's tabs to keep them in sync
+      socket.to(socket.userId).emit('receiveMessage', message);
+
+      // Notify sender that message was delivered if recipient is online
+      if (isRecipientOnline) {
         socket.emit('messageDelivered', {
           messageId: message._id,
           deliveredAt: message.deliveredAt
@@ -160,14 +177,11 @@ io.on('connection', (socket) => {
 
   // Typing indicator
   socket.on('typing', (data) => {
-    const recipientSocketId = connectedUsers.get(data.recipientId);
-    if (recipientSocketId) {
-      io.to(recipientSocketId).emit('userTyping', {
-        userId: socket.userId,
-        username: socket.username,
-        isTyping: data.isTyping
-      });
-    }
+    io.to(data.recipientId).emit('userTyping', {
+      userId: socket.userId,
+      username: socket.username,
+      isTyping: data.isTyping
+    });
   });
 
   // Mark message as read
@@ -184,14 +198,12 @@ io.on('connection', (socket) => {
 
       if (message) {
         // Notify sender that message was read
-        const senderSocketId = connectedUsers.get(message.sender.toString());
-        if (senderSocketId) {
-          io.to(senderSocketId).emit('messageStatusUpdate', {
-            messageId: message._id,
-            isRead: true,
-            readAt: message.readAt
-          });
-        }
+        // Notify sender that message was read
+        io.to(message.sender.toString()).emit('messageStatusUpdate', {
+          messageId: message._id,
+          isRead: true,
+          readAt: message.readAt
+        });
       }
     } catch (error) {
       console.error('Mark as read error:', error);
@@ -206,13 +218,10 @@ io.on('connection', (socket) => {
         readAt: Date.now()
       });
 
-      const senderSocketId = connectedUsers.get(data.senderId);
-      if (senderSocketId) {
-        io.to(senderSocketId).emit('messageReadReceipt', {
-          messageId: data.messageId,
-          readAt: Date.now()
-        });
-      }
+      io.to(data.senderId).emit('messageReadReceipt', {
+        messageId: data.messageId,
+        readAt: Date.now()
+      });
     } catch (error) {
       console.error('Message read error:', error);
     }

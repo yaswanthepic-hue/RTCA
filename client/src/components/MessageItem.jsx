@@ -9,7 +9,15 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
 
   const API_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
   const getMessageContent = () => {
-    return message.content || '[No content]';
+    return message.content || '';
+  };
+
+  // Only show caption if it's a user-typed string (not empty, not the auto filename fallback)
+  const getCaption = () => {
+    const c = message.content || '';
+    if (!c) return null;
+    if (c.startsWith('File: ') || c === 'Voice message') return null;
+    return c;
   };
 
   const formatTime = (date) => {
@@ -97,7 +105,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
               e.target.parentNode.insertBefore(errorDiv, e.target);
             }}
           />
-          <p className="media-caption">{getMessageContent()}</p>
+          {getCaption() && <p className="media-caption">{getCaption()}</p>}
         </div>
       );
     }
@@ -117,7 +125,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
               e.target.parentNode.insertBefore(errorDiv, e.target);
             }}
           />
-          <p className="media-caption">{getMessageContent()}</p>
+          {getCaption() && <p className="media-caption">{getCaption()}</p>}
         </div>
       );
     }
@@ -137,7 +145,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
               e.target.parentNode.insertBefore(errorDiv, e.target);
             }}
           />
-          <p className="media-caption">{getMessageContent()}</p>
+          {getCaption() && <p className="media-caption">{getCaption()}</p>}
         </div>
       );
     }

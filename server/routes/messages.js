@@ -26,15 +26,12 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|mp4|mp3|wav|webm/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Invalid file type'));
+    // Block only genuinely dangerous executable types
+    const blockedExtensions = /\.(exe|bat|cmd|sh|ps1|msi|com|scr|vbs|jar)$/i;
+    if (blockedExtensions.test(path.extname(file.originalname).toLowerCase())) {
+      return cb(new Error('Executable file types are not allowed'));
     }
+    cb(null, true);
   }
 });
 
@@ -49,10 +46,10 @@ router.get('/conversation/:userId', auth, async (req, res) => {
         { sender: otherUserId, recipient: req.userId }
       ]
     })
-    .populate('sender', 'username avatar')
-    .populate('recipient', 'username avatar')
-    .sort({ createdAt: 1 })
-    .limit(100);
+      .populate('sender', 'username avatar')
+      .populate('recipient', 'username avatar')
+      .sort({ createdAt: 1 })
+      .limit(100);
 
     res.json(messages);
   } catch (error) {
@@ -205,7 +202,11 @@ router.post('/:messageId/pin', auth, async (req, res) => {
     message.isPinned = true;
     await message.save();
 
-    res.json({ message: 'Message pinned successfully' });
+    // Emit socket event
+    const io = req.app.get('io');
+    io.to(message.sender.toString()).to(message.recipient.toString()).emit('messageUpdate', message);
+
+    res.json({ message: 'Message pinned successfully', data: message });
   } catch (error) {
     console.error('Pin message error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -230,7 +231,11 @@ router.post('/:messageId/unpin', auth, async (req, res) => {
     message.isPinned = false;
     await message.save();
 
-    res.json({ message: 'Message unpinned successfully' });
+    // Emit socket event
+    const io = req.app.get('io');
+    io.to(message.sender.toString()).to(message.recipient.toString()).emit('messageUpdate', message);
+
+    res.json({ message: 'Message unpinned successfully', data: message });
   } catch (error) {
     console.error('Unpin message error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -349,6 +354,10 @@ router.delete('/:messageId', auth, async (req, res) => {
     }
 
     await Message.deleteOne({ _id: req.params.messageId });
+
+    // Emit socket event
+    const io = req.app.get('io');
+    io.to(message.sender.toString()).to(message.recipient.toString()).emit('messageDeleted', { messageId: req.params.messageId });
 
     res.json({ message: 'Message deleted successfully' });
   } catch (error) {

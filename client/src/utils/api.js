@@ -72,7 +72,7 @@ export const messageAPI = {
   uploadFile: (formData) => {
     return api.post('/messages/upload', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': undefined, // let axios/browser set multipart boundary automatically
       },
     });
   },
