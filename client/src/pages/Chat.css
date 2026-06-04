@@ -1,61 +1,16 @@
 .chat-container {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 320px 1fr;
   height: 100vh;
+  height: 100dvh;
   background: var(--dark-bg);
-  position: relative;
   overflow: hidden;
 }
 
-.chat-container .sidebar {
-  transition: transform 0.3s ease;
-}
-
-.chat-container .chat-window {
-  transition: transform 0.3s ease;
-}
-
-/* Large tablet - reduce sidebar width */
-@media (max-width: 1200px) {
-  .chat-container {
-    grid-template-columns: 320px 1fr;
-  }
-}
-
-/* Tablet and below - further reduce sidebar */
-@media (max-width: 1024px) {
-  .chat-container {
-    grid-template-columns: 280px 1fr;
-  }
-}
-
-/* Small tablet - minimal sidebar width */
-@media (max-width: 900px) {
-  .chat-container {
-    grid-template-columns: 260px 1fr;
-  }
-}
-
-/* Mobile landscape and below - full width only */
 @media (max-width: 768px) {
   .chat-container {
     grid-template-columns: 1fr;
   }
-
-  /* Hide sidebar when chat is selected */
-  .chat-container.chat-selected .sidebar {
-    display: none;
-  }
-
-  /* Show chat window only when chat is selected */
-  .chat-container:not(.chat-selected) .chat-window {
-    display: none;
-  }
-}
-
-/* Small mobile */
-@media (max-width: 480px) {
-  .chat-container {
-    height: 100dvh;
-  }
+  .chat-container.chat-selected .sidebar { display: none; }
+  .chat-container:not(.chat-selected) .chat-window { display: none; }
 }

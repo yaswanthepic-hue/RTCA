@@ -7,7 +7,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
-    email: '',
+    identifier: '',
     password: '',
   });
   const [error, setError] = useState('');
@@ -80,14 +80,14 @@ const Login = () => {
 
             <form onSubmit={handleSubmit} className="auth-form">
               <div className="form-group">
-                <label htmlFor="email">Email</label>
+                <label htmlFor="identifier">Email or Username</label>
                 <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
+                  type="text"
+                  id="identifier"
+                  name="identifier"
+                  value={formData.identifier}
                   onChange={handleChange}
-                  placeholder="your@email.com"
+                  placeholder="your@email.com or username"
                   required
                   className="neon-input"
                 />

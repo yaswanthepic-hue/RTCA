@@ -11,8 +11,8 @@
 .auth-container::before {
   content: '';
   position: absolute;
-  width: 500px;
-  height: 500px;
+  width: 350px;
+  height: 350px;
   background: radial-gradient(circle, var(--neon-teal) 0%, transparent 70%);
   opacity: 0.1;
   top: -250px;
@@ -41,6 +41,13 @@
     transform: scale(1.2);
     opacity: 0.15;
   }
+}
+
+.neon-input,
+.neon-button,
+.feature-item,
+.link-text {
+  will-change: transform;
 }
 
 .auth-grid {
@@ -73,7 +80,7 @@
   color: var(--neon-teal);
   position: relative;
   letter-spacing: 0.2rem;
-  animation: glitch-skew 1s infinite;
+  animation: glitch-skew 6s ease-in-out infinite;
 }
 
 .glitch::before,
@@ -90,14 +97,14 @@
   left: 2px;
   text-shadow: -2px 0 var(--neon-orange);
   clip: rect(44px, 450px, 56px, 0);
-  animation: glitch-anim 5s infinite linear alternate-reverse;
+  animation: glitch-anim 12s infinite linear alternate-reverse;
 }
 
 .glitch::after {
   left: -2px;
   text-shadow: -2px 0 var(--neon-yellow);
   clip: rect(44px, 450px, 56px, 0);
-  animation: glitch-anim2 5s infinite linear alternate-reverse;
+  animation: glitch-anim2 12s infinite linear alternate-reverse;
 }
 
 @keyframes glitch-anim {
@@ -185,8 +192,11 @@
 }
 
 .feature-item:hover {
-  transform: translateX(10px);
-  background: rgba(21, 27, 61, 0.8);
+  transform: translateX(8px) translateY(-2px);
+
+  box-shadow:
+    0 8px 25px rgba(0,0,0,.25);
+
   border-left-color: var(--neon-orange);
 }
 
@@ -206,12 +216,18 @@
 }
 
 .auth-card {
-  background: var(--dark-card);
-  border: 1px solid var(--border-glow);
-  border-radius: 16px;
+  background: rgba(21, 27, 61, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(0, 255, 255, 0.15);
+  border-radius: 20px;
   padding: 3rem;
   width: 100%;
   max-width: 450px;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(0, 255, 255, 0.08);
+  animation: fadeUp 0.5s ease;
 }
 
 .auth-header {
@@ -288,7 +304,10 @@
 
 .neon-input:focus {
   border-color: var(--neon-teal);
-  box-shadow: 0 0 10px var(--shadow-glow);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 3px rgba(0,255,255,.12),
+    0 0 15px rgba(0,255,255,.2);
 }
 
 .neon-input::placeholder {
@@ -327,8 +346,11 @@
 }
 
 .neon-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px var(--shadow-glow);
+  transform: translateY(-3px) scale(1.02);
+
+  box-shadow:
+    0 15px 40px rgba(0,255,255,.25),
+    0 5px 20px rgba(255,140,0,.2);
 }
 
 .neon-button:active {
@@ -374,6 +396,17 @@
   text-decoration: underline;
 }
 
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(25px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 968px) {
   .auth-grid {
     grid-template-columns: 1fr;
@@ -389,12 +422,45 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
+
+  .auth-container {
+    padding: 1.5rem;
+  }
+
   .auth-card {
-    padding: 2rem 1.5rem;
+    max-width: 100%;
+  }
+
+  .auth-header h2 {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+
+  .auth-container {
+    padding: 1rem;
+  }
+
+  .auth-card {
+    padding: 1.75rem;
+    border-radius: 16px;
   }
 
   .auth-header h2 {
     font-size: 1.5rem;
+  }
+
+  .auth-header p {
+    font-size: 0.85rem;
+  }
+
+  .neon-input {
+    padding: 0.85rem;
+  }
+
+  .neon-button {
+    padding: 0.9rem;
   }
 }

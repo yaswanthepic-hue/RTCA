@@ -66,21 +66,34 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { identifier, email, password } = req.body;
+    const loginId = identifier || email;
+
+    console.log('LOGIN ATTEMPT — body keys:', Object.keys(req.body), '| loginId:', loginId);
 
     // Validation
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    if (!loginId || !password) {
+      return res.status(400).json({ error: 'Email/username and password are required' });
     }
 
+    // Detect whether loginId is an email or username
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginId);
+    const query = isEmail ? { email: loginId } : { username: loginId };
+
+    console.log('DB query:', query);
+
     // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne(query);
+    console.log('User found:', user ? user.email : 'null');
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Check password
     const isMatch = await user.comparePassword(password);
+    console.log('Password match:', isMatch);
+
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }

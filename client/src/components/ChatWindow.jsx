@@ -62,15 +62,12 @@ const ChatWindow = ({ selectedUser, onBack }) => {
         message.recipient._id === selectedUser?._id
       ) {
         setMessages((prev) => {
-          // Check if we already have this exact message by its real DB _id
           if (prev.some(m => m._id === message._id)) {
             return prev;
           }
-          // Check if this is confirming a sender's optimistic temp message
           if (message.tempId && prev.some(m => m.tempId === message.tempId)) {
             return prev.map(m => m.tempId === message.tempId ? message : m);
           }
-          // New message — just append it
           return [...prev, message];
         });
         scrollToBottom();
@@ -275,7 +272,6 @@ const ChatWindow = ({ selectedUser, onBack }) => {
         tempId,
       });
 
-      // Optimistically add to chat immediately with the real fileUrl
       const tempMessage = {
         _id: tempId,
         tempId,
@@ -283,7 +279,7 @@ const ChatWindow = ({ selectedUser, onBack }) => {
         recipient: selectedUser,
         content: fileCaptionRef.current.trim(),
         messageType,
-        fileUrl,         // ← real server URL, so media renders instantly
+        fileUrl,
         fileName,
         fileSize,
         createdAt: new Date().toISOString(),
@@ -312,7 +308,6 @@ const ChatWindow = ({ selectedUser, onBack }) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Pick a supported mimeType upfront so the recorder and blob agree
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm')
@@ -324,7 +319,6 @@ const ChatWindow = ({ selectedUser, onBack }) => {
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
-      // Define handlers BEFORE start()
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
@@ -332,7 +326,6 @@ const ChatWindow = ({ selectedUser, onBack }) => {
       };
 
       mediaRecorder.onstop = () => {
-        // Use the recorder's actual mimeType — guaranteed to match what was encoded
         const actualMimeType = mediaRecorder.mimeType || mimeType;
         const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
         const audioUrl = URL.createObjectURL(audioBlob);
@@ -392,7 +385,6 @@ const ChatWindow = ({ selectedUser, onBack }) => {
         tempId,
       });
 
-      // Optimistically add to chat immediately
       const tempMessage = {
         _id: tempId,
         tempId,
@@ -400,7 +392,7 @@ const ChatWindow = ({ selectedUser, onBack }) => {
         recipient: selectedUser,
         content: 'Voice message',
         messageType: 'voice',
-        fileUrl,         // ← real server URL, renders instantly
+        fileUrl,
         fileName,
         fileSize,
         createdAt: new Date().toISOString(),
@@ -483,6 +475,32 @@ const ChatWindow = ({ selectedUser, onBack }) => {
     }
   };
 
+  // ─── DATE STAMP HELPER ──────────────────────────────────────────────────────
+
+  const getDateLabel = (dateStr) => {
+    const msgDate = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    const isSameDay = (a, b) =>
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate();
+
+    if (isSameDay(msgDate, today)) return 'Today';
+    if (isSameDay(msgDate, yesterday)) return 'Yesterday';
+
+    // Within the last 7 days → show day name e.g. "Monday"
+    const diffDays = Math.floor((today - msgDate) / (1000 * 60 * 60 * 24));
+    if (diffDays < 7) {
+      return msgDate.toLocaleDateString([], { weekday: 'long' });
+    }
+
+    // Older → show full date e.g. "12 May 2024"
+    return msgDate.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
   if (!selectedUser) {
     return (
       <div className="chat-window-empty">
@@ -541,18 +559,31 @@ const ChatWindow = ({ selectedUser, onBack }) => {
             <p>No messages yet. Start the conversation!</p>
           </div>
         ) : (
-          messages.map((message) => (
-            <div key={message._id}>
-              <MessageItem
-                message={message}
-                isSent={message.sender._id === user.id}
-                onError={showError}
-                onDelete={(messageId) => {
-                  setMessages(prev => prev.filter(m => m._id !== messageId));
-                }}
-              />
-            </div>
-          ))
+          (() => {
+            let lastDateLabel = null;
+            return messages.map((message) => {
+              const dateLabel = getDateLabel(message.createdAt);
+              const showStamp = dateLabel !== lastDateLabel;
+              lastDateLabel = dateLabel;
+              return (
+                <div key={message._id}>
+                  {showStamp && (
+                    <div className="date-stamp">
+                      <span>{dateLabel}</span>
+                    </div>
+                  )}
+                  <MessageItem
+                    message={message}
+                    isSent={message.sender._id === user.id}
+                    onError={showError}
+                    onDelete={(messageId) => {
+                      setMessages(prev => prev.filter(m => m._id !== messageId));
+                    }}
+                  />
+                </div>
+              );
+            });
+          })()
         )}
         {isTyping && (
           <div className="typing-indicator">
@@ -615,7 +646,6 @@ const ChatWindow = ({ selectedUser, onBack }) => {
           disabled={uploading || isRecording || !!voicePreview}
         />
 
-        {/* Voice: recording in progress */}
         {isRecording ? (
           <button
             type="button"

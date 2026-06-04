@@ -157,3 +157,43 @@ a {
   text-decoration: none;
   color: inherit;
 }
+
+/* Performance */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.messages-container,
+.conversations-list {
+  contain: layout style paint;
+}
+
+/* Modern entrance animation */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(21, 27, 61, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Better mobile rendering */
+img {
+  max-width: 100%;
+  display: block;
+}
