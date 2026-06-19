@@ -8,7 +8,9 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const messageRoutes = require('./routes/messages');
 const messageRequestRoutes = require('./routes/messageRequests');
+const groupRoutes = require('./routes/groups');
 const Message = require('./models/Message');
+const Group = require('./models/Group');
 const User = require('./models/User');
 const jwt = require('jsonwebtoken');
 
@@ -56,6 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/message-requests', messageRequestRoutes);
+app.use('/api/groups', groupRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -121,6 +124,11 @@ io.on('connection', (socket) => {
   // Join user to their own room
   socket.join(socket.userId);
 
+  // Join all group rooms this user belongs to
+  Group.find({ members: socket.userId }).select('_id').then((groups) => {
+    groups.forEach((g) => socket.join(`group:${g._id}`));
+  }).catch((err) => console.error('Join group rooms error:', err));
+
   // Send message
   socket.on('sendMessage', async (data) => {
     try {
@@ -182,6 +190,56 @@ io.on('connection', (socket) => {
       username: socket.username,
       isTyping: data.isTyping
     });
+  });
+
+  // Send group message
+  socket.on('sendGroupMessage', async (data) => {
+    try {
+      const { groupId, content, messageType, fileUrl, fileName, fileSize, tempId } = data;
+
+      const group = await Group.findById(groupId);
+      if (!group || !group.members.some((m) => m.toString() === socket.userId)) {
+        return socket.emit('messageError', { error: 'Not a member of this group' });
+      }
+
+      const message = new Message({
+        sender: socket.userId,
+        group: groupId,
+        content: content || '',
+        messageType: messageType || 'text',
+        fileUrl: fileUrl || '',
+        fileName: fileName || '',
+        fileSize: fileSize || 0
+      });
+
+      await message.save();
+      await message.populate('sender', 'username displayName avatar');
+
+      group.lastMessage = message._id;
+      await group.save();
+
+      io.to(`group:${groupId}`).emit('receiveGroupMessage', message);
+
+      socket.emit('groupMessageSent', { tempId, message });
+    } catch (error) {
+      console.error('Send group message error:', error);
+      socket.emit('messageError', { error: 'Failed to send group message' });
+    }
+  });
+
+  // Group typing indicator
+  socket.on('groupTyping', (data) => {
+    socket.to(`group:${data.groupId}`).emit('groupUserTyping', {
+      groupId: data.groupId,
+      userId: socket.userId,
+      username: socket.username,
+      isTyping: data.isTyping
+    });
+  });
+
+  // Join a group room (e.g. right after being added/accepting an invite)
+  socket.on('joinGroupRoom', (data) => {
+    if (data?.groupId) socket.join(`group:${data.groupId}`);
   });
 
   // Mark message as read

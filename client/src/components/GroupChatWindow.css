@@ -1,0 +1,78 @@
+.group-avatar-fallback {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 245, 255, 0.08);
+  border: 2px solid var(--border-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neon-teal);
+  flex-shrink: 0;
+}
+
+/* ── Group message bubbles ── */
+.group-message {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  max-width: 75%;
+  animation: gmFadeIn 0.18s ease;
+}
+@keyframes gmFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.group-message.sent {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+.group-msg-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.group-msg-bubble {
+  background: var(--dark-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 60px;
+}
+.group-message.sent .group-msg-bubble {
+  background: linear-gradient(135deg, rgba(0, 245, 255, 0.14), rgba(0, 245, 255, 0.06));
+  border-color: var(--border-glow);
+}
+.group-msg-sender {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--neon-teal);
+}
+.group-msg-text {
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.group-msg-media {
+  max-width: 240px;
+  max-height: 240px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.group-msg-file {
+  color: var(--neon-teal);
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+.group-msg-time {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  align-self: flex-end;
+}

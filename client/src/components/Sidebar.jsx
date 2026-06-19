@@ -2,21 +2,65 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { messageAPI } from '../utils/api';
+import { messageAPI, groupAPI } from '../utils/api';
+import CreateGroupModal from './CreateGroupModal';
 import './Sidebar.css';
 
-const Sidebar = ({ selectedUser, onSelectUser, onShowUserList, onConversationsUpdate }) => {
+const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onShowUserList, onConversationsUpdate, onShowRequests, pendingRequestsCount = 0 }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { socket } = useSocket();
   const [conversations, setConversations] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadChats, setUnreadChats] = useState(new Set());
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   useEffect(() => {
     loadConversations();
+    loadGroups();
   }, []);
+
+  const loadGroups = async () => {
+    try {
+      const response = await groupAPI.getGroups();
+      setGroups(response.data.groups || []);
+    } catch (error) {
+      console.error('Load groups error:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleGroupAdded = (group) => {
+      setGroups((prev) => {
+        if (prev.some((g) => g._id === group._id)) {
+          return prev.map((g) => (g._id === group._id ? group : g));
+        }
+        return [group, ...prev];
+      });
+    };
+    const handleGroupUpdated = (group) => {
+      setGroups((prev) => prev.map((g) => (g._id === group._id ? { ...g, ...group } : g)));
+    };
+    socket.on('groupAdded', handleGroupAdded);
+    socket.on('groupUpdated', handleGroupUpdated);
+    socket.on('receiveGroupMessage', (message) => {
+      const groupId = message.group?._id || message.group;
+      setGroups((prev) => {
+        const filtered = prev.filter((g) => g._id !== groupId);
+        const target = prev.find((g) => g._id === groupId);
+        if (!target) return prev;
+        return [{ ...target, lastMessage: message }, ...filtered];
+      });
+    });
+    return () => {
+      socket.off('groupAdded', handleGroupAdded);
+      socket.off('groupUpdated', handleGroupUpdated);
+      socket.off('receiveGroupMessage');
+    };
+  }, [socket]);
 
   useEffect(() => {
     if (onConversationsUpdate) {
@@ -123,6 +167,30 @@ const Sidebar = ({ selectedUser, onSelectUser, onShowUserList, onConversationsUp
     conv.user.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  let filteredGroups = groups.filter((g) =>
+    g.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  filteredGroups.sort((a, b) => {
+    const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.updatedAt || 0).getTime();
+    const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.updatedAt || 0).getTime();
+    return bTime - aTime;
+  });
+
+  const getGroupLastMessagePreview = (group) => {
+    const msg = group.lastMessage;
+    if (!msg) return 'No messages yet';
+    const senderName = msg.sender?.username === user.username ? 'You' : msg.sender?.username;
+    if (msg.messageType && msg.messageType !== 'text') {
+      const icons = { image: '🖼️', video: '🎥', audio: '🎵', voice: '🎤', file: '📎', sticker: '😀', gif: '🎬' };
+      const icon = icons[msg.messageType] || '📎';
+      return `${senderName}: ${icon} ${msg.fileName || msg.messageType}`;
+    }
+    const content = msg.content || '';
+    const preview = content.length > 36 ? content.substring(0, 36) + '...' : content;
+    return `${senderName}: ${preview}`;
+  };
+
   // Sort: pinned chats at top, then by last message time (most recent first)
   filteredConversations.sort((a, b) => {
     const aPinned = isPinned(a._id);
@@ -148,6 +216,24 @@ const Sidebar = ({ selectedUser, onSelectUser, onShowUserList, onConversationsUp
           </div>
         </div>
         <div className="header-actions">
+          {onShowRequests && (
+            <button onClick={onShowRequests} className="logout-btn" title="Requests & Invites" style={{ position: 'relative' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              {pendingRequestsCount > 0 && <span className="unread-dot" style={{ position: 'absolute', top: 4, right: 4 }}></span>}
+            </button>
+          )}
+          <button onClick={() => setShowCreateGroup(true)} className="logout-btn" title="New group">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              <line x1="19" y1="8" x2="19" y2="14" />
+              <line x1="16" y1="11" x2="22" y2="11" />
+            </svg>
+          </button>
           <button onClick={logout} className="logout-btn" title="Logout">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -180,7 +266,7 @@ const Sidebar = ({ selectedUser, onSelectUser, onShowUserList, onConversationsUp
             <div className="spinner"></div>
             <p>Loading conversations...</p>
           </div>
-        ) : filteredConversations.length === 0 ? (
+        ) : (filteredConversations.length === 0 && filteredGroups.length === 0) ? (
           <div className="empty-state">
             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -191,42 +277,96 @@ const Sidebar = ({ selectedUser, onSelectUser, onShowUserList, onConversationsUp
             </button>
           </div>
         ) : (
-          filteredConversations.map((conv) => {
-            const pinned = isPinned(conv._id);
-            const hasUnread = unreadChats.has(conv._id);
-
-            return (
+          <>
+            {filteredGroups.map((group) => (
               <div
-                key={conv._id}
-                className={`conversation-item ${selectedUser?._id === conv._id ? 'active' : ''} ${pinned ? 'pinned' : ''}`}
-                onClick={() => onSelectUser(conv.user)}
+                key={group._id}
+                className={`conversation-item ${selectedGroup?._id === group._id ? 'active' : ''}`}
+                onClick={() => onSelectGroup?.(group)}
               >
                 <div className="conv-avatar-container">
-                  <img src={conv.user.avatar} alt={conv.user.username} className="conv-avatar" />
-                  {hasUnread && <div className="unread-dot"></div>}
+                  {group.avatar ? (
+                    <img src={group.avatar} alt={group.name} className="conv-avatar" />
+                  ) : (
+                    <div className="conv-avatar group-avatar-fallback" style={{ width: 48, height: 48 }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                    </div>
+                  )}
                 </div>
                 <div className="conv-info">
                   <div className="conv-header">
                     <div className="conv-title">
-                      {pinned && <span className="pin-icon">📌</span>}
-                      <h4>{conv.user.username}</h4>
+                      <h4>{group.name}</h4>
                     </div>
-                    <span className="conv-time">
-                      {new Date(conv.lastMessage.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
+                    {group.lastMessage?.createdAt && (
+                      <span className="conv-time">
+                        {new Date(group.lastMessage.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    )}
                   </div>
                   <div className="conv-bottom">
-                    <p className="conv-preview">{getLastMessagePreview(conv)}</p>
+                    <p className="conv-preview">{getGroupLastMessagePreview(group)}</p>
                   </div>
                 </div>
               </div>
-            );
-          })
+            ))}
+
+            {filteredConversations.map((conv) => {
+              const pinned = isPinned(conv._id);
+              const hasUnread = unreadChats.has(conv._id);
+
+              return (
+                <div
+                  key={conv._id}
+                  className={`conversation-item ${selectedUser?._id === conv._id ? 'active' : ''} ${pinned ? 'pinned' : ''}`}
+                  onClick={() => onSelectUser(conv.user)}
+                >
+                  <div className="conv-avatar-container">
+                    <img src={conv.user.avatar} alt={conv.user.username} className="conv-avatar" />
+                    {hasUnread && <div className="unread-dot"></div>}
+                  </div>
+                  <div className="conv-info">
+                    <div className="conv-header">
+                      <div className="conv-title">
+                        {pinned && <span className="pin-icon">📌</span>}
+                        <h4>{conv.user.username}</h4>
+                      </div>
+                      <span className="conv-time">
+                        {new Date(conv.lastMessage.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <div className="conv-bottom">
+                      <p className="conv-preview">{getLastMessagePreview(conv)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
         )}
       </div>
+
+      {showCreateGroup && (
+        <CreateGroupModal
+          onClose={() => setShowCreateGroup(false)}
+          onGroupCreated={(group) => {
+            setGroups((prev) => [group, ...prev]);
+            setShowCreateGroup(false);
+            onSelectGroup?.(group);
+          }}
+        />
+      )}
     </div>
   );
 };

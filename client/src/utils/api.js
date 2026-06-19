@@ -92,6 +92,19 @@ export const messageRequestAPI = {
   getSentRequests: () => api.get('/message-requests/sent'),
   acceptRequest: (requestId) => api.post(`/message-requests/accept/${requestId}`),
   rejectRequest: (requestId) => api.post(`/message-requests/reject/${requestId}`),
+  getGroupInvites: () => api.get('/message-requests/group-invites'),
+  acceptGroupInvite: (inviteId) => api.post(`/message-requests/group-invites/${inviteId}/accept`),
+  rejectGroupInvite: (inviteId) => api.post(`/message-requests/group-invites/${inviteId}/reject`),
+};
+
+// Group APIs
+export const groupAPI = {
+  createGroup: (data) => api.post('/groups', data),
+  getGroups: () => api.get('/groups'),
+  getGroup: (groupId) => api.get(`/groups/${groupId}`),
+  getGroupMessages: (groupId) => api.get(`/groups/${groupId}/messages`),
+  addMembers: (groupId, memberIds) => api.post(`/groups/${groupId}/members`, { memberIds }),
+  leaveGroup: (groupId) => api.post(`/groups/${groupId}/leave`),
 };
 
 export default api;

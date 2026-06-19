@@ -9,7 +9,12 @@ const messageSchema = new mongoose.Schema({
   recipient: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
+  },
+  group: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    required: false
   },
   content: {
     type: String,
@@ -21,7 +26,7 @@ const messageSchema = new mongoose.Schema({
   },
   messageType: {
     type: String,
-    enum: ['text', 'image', 'video', 'audio', 'file', 'voice', 'sticker', 'gif'],
+    enum: ['text', 'image', 'video', 'audio', 'file', 'voice', 'sticker', 'gif', 'system'],
     default: 'text'
   },
   fileUrl: {
