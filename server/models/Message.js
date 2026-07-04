@@ -51,6 +51,23 @@ const messageSchema = new mongoose.Schema({
   deliveredAt: {
     type: Date
   },
+  // Per-member delivery/read tracking for group messages.
+  // (1-1 messages keep using the simpler isRead/readAt/deliveredAt fields above.)
+  deliveredTo: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    deliveredAt: { type: Date, default: Date.now }
+  }],
+  readBy: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    readAt: { type: Date, default: Date.now }
+  }],
+  // Snapshot of how many other group members this message was sent to, taken
+  // at send time, so a message's "read by everyone" status doesn't change
+  // later just because someone new joined or left the group.
+  recipientCount: {
+    type: Number,
+    default: 0
+  },
   isPinned: {
     type: Boolean,
     default: false

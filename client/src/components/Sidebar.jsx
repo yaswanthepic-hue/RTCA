@@ -6,7 +6,7 @@ import { messageAPI, groupAPI } from '../utils/api';
 import CreateGroupModal from './CreateGroupModal';
 import './Sidebar.css';
 
-const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onShowUserList, onConversationsUpdate, onShowRequests, pendingRequestsCount = 0 }) => {
+const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onShowUserList, onConversationsUpdate, onShowRequests, pendingRequestsCount = 0, groupsRefreshToken = 0 }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { socket } = useSocket();
@@ -15,12 +15,21 @@ const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onS
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadChats, setUnreadChats] = useState(new Set());
+  const [unreadGroups, setUnreadGroups] = useState(new Set());
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [activeTab, setActiveTab] = useState('chats'); // 'chats' | 'groups'
 
   useEffect(() => {
     loadConversations();
     loadGroups();
   }, []);
+
+  // Re-fetch groups when signaled (e.g. after the user leaves a group)
+  useEffect(() => {
+    if (groupsRefreshToken > 0) {
+      loadGroups();
+    }
+  }, [groupsRefreshToken]);
 
   const loadGroups = async () => {
     try {
@@ -44,9 +53,16 @@ const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onS
     const handleGroupUpdated = (group) => {
       setGroups((prev) => prev.map((g) => (g._id === group._id ? { ...g, ...group } : g)));
     };
-    socket.on('groupAdded', handleGroupAdded);
-    socket.on('groupUpdated', handleGroupUpdated);
-    socket.on('receiveGroupMessage', (message) => {
+    const handleRemovedFromGroup = (data) => {
+      setGroups((prev) => prev.filter((g) => g._id !== data?.groupId));
+      setUnreadGroups((prev) => {
+        if (!prev.has(data?.groupId)) return prev;
+        const next = new Set(prev);
+        next.delete(data.groupId);
+        return next;
+      });
+    };
+    const handleReceiveGroupMessageForList = (message) => {
       const groupId = message.group?._id || message.group;
       setGroups((prev) => {
         const filtered = prev.filter((g) => g._id !== groupId);
@@ -54,13 +70,37 @@ const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onS
         if (!target) return prev;
         return [{ ...target, lastMessage: message }, ...filtered];
       });
-    });
+
+      const senderId = message.sender?._id || message.sender;
+      if (senderId !== user.id && message.messageType !== 'system') {
+        if (!selectedGroup || selectedGroup._id !== groupId) {
+          setUnreadGroups((prev) => new Set(prev).add(groupId));
+        }
+      }
+    };
+    socket.on('groupAdded', handleGroupAdded);
+    socket.on('groupUpdated', handleGroupUpdated);
+    socket.on('removedFromGroup', handleRemovedFromGroup);
+    socket.on('receiveGroupMessage', handleReceiveGroupMessageForList);
     return () => {
       socket.off('groupAdded', handleGroupAdded);
       socket.off('groupUpdated', handleGroupUpdated);
-      socket.off('receiveGroupMessage');
+      socket.off('removedFromGroup', handleRemovedFromGroup);
+      socket.off('receiveGroupMessage', handleReceiveGroupMessageForList);
     };
-  }, [socket]);
+  }, [socket, selectedGroup, user.id]);
+
+  // When user selects a group, mark it as read
+  useEffect(() => {
+    if (selectedGroup) {
+      setUnreadGroups((prev) => {
+        if (!prev.has(selectedGroup._id)) return prev;
+        const next = new Set(prev);
+        next.delete(selectedGroup._id);
+        return next;
+      });
+    }
+  }, [selectedGroup]);
 
   useEffect(() => {
     if (onConversationsUpdate) {
@@ -180,6 +220,10 @@ const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onS
   const getGroupLastMessagePreview = (group) => {
     const msg = group.lastMessage;
     if (!msg) return 'No messages yet';
+    if (msg.messageType === 'system') {
+      const content = msg.content || '';
+      return content.length > 40 ? content.substring(0, 40) + '...' : content;
+    }
     const senderName = msg.sender?.username === user.username ? 'You' : msg.sender?.username;
     if (msg.messageType && msg.messageType !== 'text') {
       const icons = { image: '🖼️', video: '🎥', audio: '🎵', voice: '🎤', file: '📎', sticker: '😀', gif: '🎬' };
@@ -260,23 +304,57 @@ const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onS
         </button>
       </div>
 
+      <div className="sidebar-tabs">
+        <button
+          className={`sidebar-tab ${activeTab === 'chats' ? 'active' : ''}`}
+          onClick={() => setActiveTab('chats')}
+        >
+          Chats
+          {unreadChats.size > 0 && (
+            <span className="tab-count">{unreadChats.size}</span>
+          )}
+        </button>
+        <button
+          className={`sidebar-tab ${activeTab === 'groups' ? 'active' : ''}`}
+          onClick={() => setActiveTab('groups')}
+        >
+          Groups
+          {unreadGroups.size > 0 && (
+            <span className="tab-count">{unreadGroups.size}</span>
+          )}
+        </button>
+      </div>
+
       <div className="conversations-list">
         {loading ? (
           <div className="loading-state">
             <div className="spinner"></div>
             <p>Loading conversations...</p>
           </div>
-        ) : (filteredConversations.length === 0 && filteredGroups.length === 0) ? (
+        ) : activeTab === 'chats' && filteredConversations.length === 0 ? (
           <div className="empty-state">
             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            <p>No conversations yet</p>
+            <p>No chats yet</p>
             <button onClick={onShowUserList} className="start-chat-btn">
               Start chatting
             </button>
           </div>
-        ) : (
+        ) : activeTab === 'groups' && filteredGroups.length === 0 ? (
+          <div className="empty-state">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <p>No groups yet</p>
+            <button onClick={() => setShowCreateGroup(true)} className="start-chat-btn">
+              Create a group
+            </button>
+          </div>
+        ) : activeTab === 'groups' ? (
           <>
             {filteredGroups.map((group) => (
               <div
@@ -297,6 +375,7 @@ const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onS
                       </svg>
                     </div>
                   )}
+                  {unreadGroups.has(group._id) && <div className="unread-dot"></div>}
                 </div>
                 <div className="conv-info">
                   <div className="conv-header">
@@ -318,7 +397,9 @@ const Sidebar = ({ selectedUser, selectedGroup, onSelectUser, onSelectGroup, onS
                 </div>
               </div>
             ))}
-
+          </>
+        ) : (
+          <>
             {filteredConversations.map((conv) => {
               const pinned = isPinned(conv._id);
               const hasUnread = unreadChats.has(conv._id);

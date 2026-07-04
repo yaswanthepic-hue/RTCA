@@ -11,8 +11,13 @@
 }
 
 @keyframes cgFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .group-info-modal {
@@ -30,8 +35,15 @@
 }
 
 @keyframes cgSlideUp {
-  from { opacity: 0; transform: translateY(24px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .gi-header {
@@ -42,6 +54,7 @@
   border-bottom: 1px solid rgba(0, 245, 255, 0.08);
   flex-shrink: 0;
 }
+
 .gi-header h2 {
   flex: 1;
   font-size: 1.05rem;
@@ -66,13 +79,16 @@
   gap: 0.4rem;
   text-align: center;
 }
-.gi-avatar, .gi-avatar-fallback {
+
+.gi-avatar,
+.gi-avatar-fallback {
   width: 76px;
   height: 76px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--border-glow);
 }
+
 .gi-avatar-fallback {
   background: rgba(0, 245, 255, 0.06);
   display: flex;
@@ -80,12 +96,14 @@
   justify-content: center;
   color: var(--neon-teal);
 }
+
 .gi-avatar-section h3 {
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-top: 0.4rem;
 }
+
 .gi-desc {
   font-size: 0.85rem;
   color: var(--text-secondary);
@@ -101,6 +119,7 @@
   letter-spacing: 0.05em;
   margin-top: 0.5rem;
 }
+
 .gi-add-btn {
   background: transparent;
   border: 1px solid var(--border-glow);
@@ -114,6 +133,7 @@
   text-transform: none;
   letter-spacing: normal;
 }
+
 .gi-add-btn:hover {
   background: rgba(0, 245, 255, 0.08);
 }
@@ -131,6 +151,7 @@
   flex-direction: column;
   gap: 0.25rem;
 }
+
 .gi-member-item {
   display: flex;
   align-items: center;
@@ -138,9 +159,11 @@
   padding: 0.45rem 0.25rem;
   border-radius: 8px;
 }
+
 .gi-member-item.pending {
   opacity: 0.75;
 }
+
 .gi-member-avatar {
   width: 38px;
   height: 38px;
@@ -148,10 +171,12 @@
   object-fit: cover;
   flex-shrink: 0;
 }
+
 .gi-member-info {
   flex: 1;
   min-width: 0;
 }
+
 .gi-member-info h4 {
   font-size: 0.88rem;
   font-weight: 600;
@@ -160,10 +185,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .gi-member-info p {
   font-size: 0.76rem;
   color: var(--text-secondary);
 }
+
 .gi-admin-badge {
   font-size: 0.68rem;
   font-weight: 600;
@@ -177,11 +204,76 @@
   flex-shrink: 0;
 }
 
+.gi-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid rgba(255, 71, 87, 0.25);
+  color: var(--error);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.gi-remove-btn:hover {
+  background: rgba(255, 71, 87, 0.12);
+}
+
+.gi-remove-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.gi-remove-confirm-btn,
+.gi-remove-cancel-btn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.28rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gi-remove-confirm-btn {
+  background: var(--error);
+  border: none;
+  color: #fff;
+  transition: opacity 0.15s ease;
+}
+
+.gi-remove-confirm-btn:hover {
+  opacity: 0.88;
+}
+
+.gi-remove-cancel-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  transition: background 0.15s ease;
+}
+
+.gi-remove-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.gi-remove-confirm-btn:disabled,
+.gi-remove-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Add members search reuses cg- classes from CreateGroupModal.css */
 .gi-search {
   padding: 0.75rem 1.25rem;
   flex-shrink: 0;
 }
+
 .gi-search input {
   width: 100%;
   background: rgba(255, 255, 255, 0.04);
@@ -193,10 +285,12 @@
   outline: none;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
+
 .gi-search input:focus {
   border-color: var(--neon-teal);
   box-shadow: 0 0 0 3px var(--shadow-glow);
 }
+
 .gi-add-list {
   flex: 1;
   overflow-y: auto;
@@ -204,10 +298,111 @@
   min-height: 200px;
 }
 
-.gi-body::-webkit-scrollbar, .gi-add-list::-webkit-scrollbar {
+.gi-body::-webkit-scrollbar,
+.gi-add-list::-webkit-scrollbar {
   width: 6px;
 }
-.gi-body::-webkit-scrollbar-thumb, .gi-add-list::-webkit-scrollbar-thumb {
+
+.gi-body::-webkit-scrollbar-thumb,
+.gi-add-list::-webkit-scrollbar-thumb {
   background: rgba(0, 245, 255, 0.2);
   border-radius: 3px;
+}
+
+.gi-error-inline {
+  margin: 0 1.25rem 0.5rem;
+}
+
+.gi-danger-zone {
+  margin-top: 0.75rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.gi-error {
+  font-size: 0.8rem;
+  color: var(--error);
+  background: rgba(255, 71, 87, 0.08);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.gi-leave-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgba(255, 71, 87, 0.08);
+  border: 1px solid rgba(255, 71, 87, 0.25);
+  color: var(--error);
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.65rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.gi-leave-btn:hover {
+  background: rgba(255, 71, 87, 0.16);
+}
+
+.gi-leave-confirm {
+  background: rgba(255, 71, 87, 0.06);
+  border: 1px solid rgba(255, 71, 87, 0.2);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.gi-leave-confirm p {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  margin-bottom: 0.65rem;
+  line-height: 1.4;
+}
+
+.gi-leave-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.gi-cancel-leave-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.gi-cancel-leave-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.gi-confirm-leave-btn {
+  background: var(--error);
+  border: none;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.gi-confirm-leave-btn:hover {
+  opacity: 0.88;
+}
+
+.gi-confirm-leave-btn:disabled,
+.gi-cancel-leave-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

@@ -125,8 +125,33 @@ io.on('connection', (socket) => {
   socket.join(socket.userId);
 
   // Join all group rooms this user belongs to
-  Group.find({ members: socket.userId }).select('_id').then((groups) => {
-    groups.forEach((g) => socket.join(`group:${g._id}`));
+  Group.find({ members: socket.userId }).select('_id').then(async (groups) => {
+    const groupIds = groups.map((g) => g._id);
+    groupIds.forEach((id) => socket.join(`group:${id}`));
+
+    // Catch-up delivery: mark any messages sent to these groups while this
+    // user was offline as delivered now, and let the senders know.
+    try {
+      const undelivered = await Message.find({
+        group: { $in: groupIds },
+        sender: { $ne: socket.userId },
+        messageType: { $ne: 'system' },
+        'deliveredTo.user': { $ne: socket.userId }
+      });
+
+      for (const msg of undelivered) {
+        msg.deliveredTo.push({ user: socket.userId, deliveredAt: new Date() });
+        await msg.save();
+        io.to(msg.sender.toString()).emit('groupMessageStatusUpdate', {
+          messageId: msg._id.toString(),
+          groupId: msg.group.toString(),
+          deliveredCount: msg.deliveredTo.length,
+          readCount: msg.readBy.length
+        });
+      }
+    } catch (err) {
+      console.error('Catch-up group delivery error:', err);
+    }
   }).catch((err) => console.error('Join group rooms error:', err));
 
   // Send message
@@ -212,13 +237,26 @@ io.on('connection', (socket) => {
         fileSize: fileSize || 0
       });
 
+      // Mark as delivered to any other member who's currently online.
+      const otherMemberIds = group.members
+        .map((m) => m.toString())
+        .filter((id) => id !== socket.userId);
+      message.deliveredTo = otherMemberIds
+        .filter((id) => connectedUsers.has(id))
+        .map((id) => ({ user: id, deliveredAt: new Date() }));
+      message.recipientCount = otherMemberIds.length;
+
       await message.save();
       await message.populate('sender', 'username displayName avatar');
 
       group.lastMessage = message._id;
       await group.save();
 
-      io.to(`group:${groupId}`).emit('receiveGroupMessage', message);
+      // Broadcast to everyone else in the group room. The sender gets their
+      // own copy via the 'groupMessageSent' ack below — emitting to the full
+      // room here (including this socket) was causing sent messages to show
+      // up twice on the sender's screen.
+      socket.to(`group:${groupId}`).emit('receiveGroupMessage', message);
 
       socket.emit('groupMessageSent', { tempId, message });
     } catch (error) {
@@ -282,6 +320,41 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       console.error('Message read error:', error);
+    }
+  });
+
+  // Mark a single group message as delivered+read by this user, and let the
+  // sender know so their tick status can update in real time.
+  socket.on('markGroupMessageRead', async (data) => {
+    try {
+      const { messageId } = data || {};
+      if (!messageId) return;
+
+      const message = await Message.findById(messageId);
+      if (!message || !message.group) return;
+      if (message.sender.toString() === socket.userId) return; // can't read your own message
+
+      let changed = false;
+      if (!message.deliveredTo.some((d) => d.user.toString() === socket.userId)) {
+        message.deliveredTo.push({ user: socket.userId, deliveredAt: new Date() });
+        changed = true;
+      }
+      if (!message.readBy.some((r) => r.user.toString() === socket.userId)) {
+        message.readBy.push({ user: socket.userId, readAt: new Date() });
+        changed = true;
+      }
+
+      if (changed) {
+        await message.save();
+        io.to(message.sender.toString()).emit('groupMessageStatusUpdate', {
+          messageId: message._id.toString(),
+          groupId: message.group.toString(),
+          deliveredCount: message.deliveredTo.length,
+          readCount: message.readBy.length
+        });
+      }
+    } catch (error) {
+      console.error('Mark group message read error:', error);
     }
   });
 

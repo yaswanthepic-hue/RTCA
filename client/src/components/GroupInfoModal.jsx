@@ -1,15 +1,55 @@
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { groupAPI, userAPI } from '../utils/api';
 import './GroupInfoModal.css';
 
-const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
+const GroupInfoModal = ({ group, onClose, onGroupUpdated, onGroupLeft }) => {
+  const { user } = useAuth();
   const [showAddMembers, setShowAddMembers] = useState(false);
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selected, setSelected] = useState([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState('');
   const [info, setInfo] = useState('');
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState('');
+  const [removingId, setRemovingId] = useState(null);
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState(null);
+  const [removeError, setRemoveError] = useState('');
+
+  const isAdmin = (group.admins || []).some((a) => (a._id || a) === user?.id);
+
+  const handleLeaveGroup = async () => {
+    setLeaving(true);
+    setLeaveError('');
+    try {
+      await groupAPI.leaveGroup(group._id);
+      onGroupLeft?.(group._id);
+      onClose();
+    } catch (err) {
+      console.error('Leave group error:', err);
+      setLeaveError('Failed to leave group. Please try again.');
+      setLeaving(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    setRemovingId(memberId);
+    setRemoveError('');
+    try {
+      const response = await groupAPI.removeMember(group._id, memberId);
+      onGroupUpdated?.(response.data.group);
+      setConfirmingRemoveId(null);
+    } catch (err) {
+      console.error('Remove member error:', err);
+      setRemoveError(err.response?.data?.error || 'Failed to remove member. Please try again.');
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   const existingIds = new Set([
     ...(group.members || []).map((m) => m._id),
@@ -51,6 +91,7 @@ const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
   const handleAddMembers = async () => {
     if (selected.length === 0) return;
     setAdding(true);
+    setAddError('');
     try {
       const response = await groupAPI.addMembers(group._id, selected.map((u) => u._id));
       onGroupUpdated?.(response.data.group);
@@ -63,6 +104,7 @@ const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
       setShowAddMembers(false);
     } catch (err) {
       console.error('Add members error:', err);
+      setAddError(err.response?.data?.error || 'Failed to add members. Please try again.');
     } finally {
       setAdding(false);
     }
@@ -109,29 +151,68 @@ const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
 
               <div className="gi-section-header">
                 <span>{(group.members || []).length} members</span>
-                <button
-                  className="gi-add-btn"
-                  onClick={() => { setShowAddMembers(true); loadUsers(); }}
-                >
-                  + Add
-                </button>
+                {isAdmin && (
+                  <button
+                    className="gi-add-btn"
+                    onClick={() => { setShowAddMembers(true); loadUsers(); }}
+                  >
+                    + Add
+                  </button>
+                )}
               </div>
 
               {info && <p className="gi-info">{info}</p>}
+              {removeError && <p className="gi-error">{removeError}</p>}
 
               <div className="gi-members-list">
-                {(group.members || []).map((m) => (
-                  <div key={m._id} className="gi-member-item">
-                    <img src={m.avatar} alt={m.username} className="gi-member-avatar" />
-                    <div className="gi-member-info">
-                      <h4>{m.displayName || m.username}</h4>
-                      <p>@{m.username}</p>
+                {(group.members || []).map((m) => {
+                  const isSelf = m._id === user?.id;
+                  const canRemove = isAdmin && !isSelf;
+                  const isConfirming = confirmingRemoveId === m._id;
+                  return (
+                    <div key={m._id} className="gi-member-item">
+                      <img src={m.avatar} alt={m.username} className="gi-member-avatar" />
+                      <div className="gi-member-info">
+                        <h4>{m.displayName || m.username}</h4>
+                        <p>@{m.username}</p>
+                      </div>
+                      {group.admins?.some((a) => (a._id || a) === m._id) && (
+                        <span className="gi-admin-badge">Admin</span>
+                      )}
+                      {canRemove && (
+                        isConfirming ? (
+                          <div className="gi-remove-confirm">
+                            <button
+                              className="gi-remove-confirm-btn"
+                              onClick={() => handleRemoveMember(m._id)}
+                              disabled={removingId === m._id}
+                            >
+                              {removingId === m._id ? 'Removing…' : 'Confirm'}
+                            </button>
+                            <button
+                              className="gi-remove-cancel-btn"
+                              onClick={() => setConfirmingRemoveId(null)}
+                              disabled={removingId === m._id}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="gi-remove-btn"
+                            title={`Remove ${m.displayName || m.username}`}
+                            onClick={() => { setConfirmingRemoveId(m._id); setRemoveError(''); }}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        )
+                      )}
                     </div>
-                    {group.admins?.some((a) => (a._id || a) === m._id) && (
-                      <span className="gi-admin-badge">Admin</span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {(group.pendingMembers || []).length > 0 && (
@@ -153,6 +234,32 @@ const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
                   </div>
                 </>
               )}
+
+              <div className="gi-danger-zone">
+                {leaveError && <p className="gi-error">{leaveError}</p>}
+                {!confirmingLeave ? (
+                  <button className="gi-leave-btn" onClick={() => setConfirmingLeave(true)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Leave Group
+                  </button>
+                ) : (
+                  <div className="gi-leave-confirm">
+                    <p>Leave "{group.name}"? You won't be able to see the group's messages anymore.</p>
+                    <div className="gi-leave-confirm-actions">
+                      <button className="gi-cancel-leave-btn" onClick={() => setConfirmingLeave(false)} disabled={leaving}>
+                        Cancel
+                      </button>
+                      <button className="gi-confirm-leave-btn" onClick={handleLeaveGroup} disabled={leaving}>
+                        {leaving ? 'Leaving…' : 'Leave'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         ) : (
@@ -210,6 +317,8 @@ const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
                 })
               )}
             </div>
+
+            {addError && <p className="gi-error gi-error-inline">{addError}</p>}
 
             <div className="cg-footer">
               <span className="cg-count">{selected.length} selected</span>

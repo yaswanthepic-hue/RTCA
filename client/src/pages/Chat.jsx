@@ -18,6 +18,7 @@ const Chat = () => {
   const [showRequests, setShowRequests] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [groupsRefreshToken, setGroupsRefreshToken] = useState(0);
 
   useEffect(() => {
     loadPendingCount();
@@ -63,6 +64,7 @@ const Chat = () => {
         onConversationsUpdate={setConversations}
         onShowRequests={() => setShowRequests(true)}
         pendingRequestsCount={pendingCount}
+        groupsRefreshToken={groupsRefreshToken}
       />
 
       {selectedGroup ? (
@@ -70,6 +72,7 @@ const Chat = () => {
           group={selectedGroup}
           onBack={() => setSelectedGroup(null)}
           onGroupUpdated={(g) => setSelectedGroup(g)}
+          onGroupLeft={() => setGroupsRefreshToken((t) => t + 1)}
         />
       ) : (
         <ChatWindow

@@ -2,6 +2,7 @@ const MessageRequest = require('../models/MessageRequest');
 const GroupInvite = require('../models/GroupInvite');
 const Group = require('../models/Group');
 const User = require('../models/User');
+const { postJoinSystemMessage } = require('./groupController');
 
 // Send message request
 exports.sendRequest = async (req, res) => {
@@ -172,13 +173,15 @@ exports.acceptGroupInvite = async (req, res) => {
     }
     await group.save();
 
+    const io = req.app.get('io');
+    await postJoinSystemMessage(io, group, req.user);
+
     const populated = await Group.findById(group._id)
       .populate('admin', 'username displayName avatar status lastSeen')
       .populate('admins', 'username displayName avatar status lastSeen')
       .populate('members', 'username displayName avatar status lastSeen')
       .populate('pendingMembers', 'username displayName avatar status lastSeen');
 
-    const io = req.app.get('io');
     if (io) {
       io.to(req.user._id.toString()).emit('groupAdded', populated);
       group.members.forEach((m) => io.to(m.toString()).emit('groupUpdated', populated));
