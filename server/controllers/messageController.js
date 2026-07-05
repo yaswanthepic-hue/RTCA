@@ -11,7 +11,8 @@ exports.getConversation = async (req, res) => {
       $or: [
         { sender: req.userId, recipient: otherUserId },
         { sender: otherUserId, recipient: req.userId }
-      ]
+      ],
+      deletedFor: { $nin: [req.userId] }
     })
       .populate('sender', 'username avatar')
       .populate('recipient', 'username avatar')
@@ -296,26 +297,40 @@ exports.deleteMessage = async (req, res) => {
   try {
     const message = await Message.findOne({
       _id: req.params.messageId,
-      sender: req.userId
+      $or: [{ sender: req.userId }, { recipient: req.userId }]
     });
 
     if (!message) {
       return res.status(404).json({ error: 'Message not found or unauthorized' });
     }
 
-    if (message.fileUrl) {
-      const filePath = path.join(__dirname, '..', message.fileUrl);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    const isSender = message.sender.toString() === req.userId;
+
+    if (isSender) {
+      // Delete for everyone
+      if (message.fileUrl) {
+        const filePath = path.join(__dirname, '..', message.fileUrl);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
       }
+
+      await Message.deleteOne({ _id: req.params.messageId });
+
+      const io = req.app.get('io');
+      io.to(message.sender.toString()).to(message.recipient.toString()).emit('messageDeleted', { messageId: req.params.messageId });
+
+      return res.json({ message: 'Message deleted for everyone', deletedForEveryone: true });
     }
 
-    await Message.deleteOne({ _id: req.params.messageId });
+    // Delete for me only (recipient hiding a message they didn't send)
+    const alreadyHidden = message.deletedFor.some((id) => id.toString() === req.userId);
+    if (!alreadyHidden) {
+      message.deletedFor.push(req.userId);
+      await message.save();
+    }
 
-    const io = req.app.get('io');
-    io.to(message.sender.toString()).to(message.recipient.toString()).emit('messageDeleted', { messageId: req.params.messageId });
-
-    res.json({ message: 'Message deleted successfully' });
+    res.json({ message: 'Message deleted for you', deletedForEveryone: false });
   } catch (error) {
     console.error('Delete message error:', error);
     res.status(500).json({ error: 'Server error' });

@@ -62,11 +62,6 @@
   border-color: var(--border-glow);
 }
 
-.group-message.pinned .group-msg-bubble {
-  border-color: rgba(255, 107, 53, 0.4);
-  box-shadow: 0 0 0 1px rgba(255, 107, 53, 0.15);
-}
-
 .group-msg-sender {
   font-size: 0.74rem;
   font-weight: 600;

@@ -104,14 +104,6 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
       onBack?.();
     };
 
-    const handleGroupMessageUpdate = (updatedMessage) => {
-      const msgGroupId = updatedMessage.group?._id || updatedMessage.group;
-      if (String(msgGroupId) !== String(group._id)) return;
-      setMessages((prev) =>
-        prev.map((m) => (String(m._id) === String(updatedMessage._id) ? { ...m, ...updatedMessage } : m))
-      );
-    };
-
     const handleGroupMessageDeleted = (data) => {
       if (String(data.groupId) !== String(group._id)) return;
       setMessages((prev) => prev.filter((m) => String(m._id) !== String(data.messageId)));
@@ -123,7 +115,6 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
     socket.on('groupUserTyping', handleGroupTyping);
     socket.on('groupUpdated', handleGroupUpdated);
     socket.on('removedFromGroup', handleRemovedFromGroup);
-    socket.on('groupMessageUpdate', handleGroupMessageUpdate);
     socket.on('groupMessageDeleted', handleGroupMessageDeleted);
 
     return () => {
@@ -133,7 +124,6 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
       socket.off('groupUserTyping', handleGroupTyping);
       socket.off('groupUpdated', handleGroupUpdated);
       socket.off('removedFromGroup', handleRemovedFromGroup);
-      socket.off('groupMessageUpdate', handleGroupMessageUpdate);
       socket.off('groupMessageDeleted', handleGroupMessageDeleted);
     };
   }, [socket, group?._id]);
@@ -176,39 +166,34 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
     setTimeout(() => setErrorMessage(''), 3000);
   };
 
-  const handleMessageContextMenu = (e, message) => {
+  const handleMessageContextMenu = (e, message, isSent) => {
     e.preventDefault();
     e.stopPropagation(); // don't trigger the chat-area "Close Chat" menu
-    setMsgContextMenu({ x: e.clientX, y: e.clientY, message });
+
+    const menuWidth = 190;
+    const menuHeight = 50;
+    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menuHeight - 8);
+    setMsgContextMenu({ x: Math.max(8, x), y: Math.max(8, y), message, isSent });
   };
 
   const handleChatAreaContextMenu = (e) => {
     e.preventDefault();
-    setChatContextMenu({ x: e.clientX, y: e.clientY });
+    const menuWidth = 170;
+    const menuHeight = 50;
+    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menuHeight - 8);
+    setChatContextMenu({ x: Math.max(8, x), y: Math.max(8, y) });
   };
 
-  const handleTogglePinMessage = async (message) => {
+  const handleDeleteMessageClick = (message, isSent) => {
     setMsgContextMenu(null);
-    try {
-      if (message.isPinned) {
-        await groupAPI.unpinGroupMessage(group._id, message._id);
-      } else {
-        await groupAPI.pinGroupMessage(group._id, message._id);
-      }
-    } catch (error) {
-      console.error('Pin group message error:', error);
-      showError('Failed to update pin');
-    }
-  };
-
-  const handleDeleteMessageClick = (message) => {
-    setMsgContextMenu(null);
-    setDeleteMsgConfirm(message);
+    setDeleteMsgConfirm({ message, isSent });
   };
 
   const confirmDeleteGroupMessage = async () => {
     if (!deleteMsgConfirm) return;
-    const messageId = deleteMsgConfirm._id;
+    const messageId = deleteMsgConfirm.message._id;
     try {
       await groupAPI.deleteGroupMessage(group._id, messageId);
       setMessages((prev) => prev.filter((m) => m._id !== messageId));
@@ -447,8 +432,7 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
             return (
               <div
                 key={message._id}
-                className={`group-message ${isSent ? 'sent' : 'received'} ${message.isPinned ? 'pinned' : ''}`}
-                onContextMenu={(e) => handleMessageContextMenu(e, message)}
+                className={`group-message ${isSent ? 'sent' : 'received'}`}
               >
                 {!isSent && (
                   <img
@@ -457,16 +441,10 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
                     className="group-msg-avatar"
                   />
                 )}
-                <div className="group-msg-bubble">
-                  {message.isPinned && (
-                    <div className="pin-indicator">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                      </svg>
-                      Pinned
-                    </div>
-                  )}
-                  {!isSent && <span className="group-msg-sender">{message.sender?.username}</span>}
+                <div
+                  className="group-msg-bubble"
+                  onContextMenu={(e) => handleMessageContextMenu(e, message, isSent)}
+                >                  {!isSent && <span className="group-msg-sender">{message.sender?.username}</span>}
                   {message.messageType === 'text' || !message.messageType ? (
                     <p className="group-msg-text">{message.content}</p>
                   ) : message.messageType === 'image' ? (
@@ -562,7 +540,7 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
 
       {errorMessage && <div className="error-toast">{errorMessage}</div>}
 
-      {/* ── Message Context Menu (Pin/Delete) ── */}
+      {/* ── Message Context Menu (Delete) ── */}
       {msgContextMenu && (
         <>
           <div className="context-menu-overlay" onClick={() => setMsgContextMenu(null)} />
@@ -571,22 +549,13 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
             style={{ top: msgContextMenu.y, left: msgContextMenu.x }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={() => handleTogglePinMessage(msgContextMenu.message)} className="context-menu-item">
+            <button onClick={() => handleDeleteMessageClick(msgContextMenu.message, msgContextMenu.isSent)} className="context-menu-item danger">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
-              {msgContextMenu.message.isPinned ? 'Unpin' : 'Pin'} Message
+              {msgContextMenu.isSent ? 'Delete Message' : 'Delete for Me'}
             </button>
-            {(msgContextMenu.message.sender?._id || msgContextMenu.message.sender) === user.id && (
-              <button onClick={() => handleDeleteMessageClick(msgContextMenu.message)} className="context-menu-item danger">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-                Delete Message
-              </button>
-            )}
           </div>
         </>
       )}
@@ -611,8 +580,12 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
       {deleteMsgConfirm && (
         <div className="modal-overlay" onClick={() => setDeleteMsgConfirm(null)}>
           <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Delete Message?</h3>
-            <p>Are you sure you want to delete this message? This cannot be undone.</p>
+            <h3>{deleteMsgConfirm.isSent ? 'Delete for everyone?' : 'Delete for me?'}</h3>
+            <p>
+              {deleteMsgConfirm.isSent
+                ? 'This message will be deleted for everyone in the group. This cannot be undone.'
+                : 'This will remove the message from your view only. Others in the group will still see it.'}
+            </p>
             <div className="modal-actions">
               <button className="cancel-btn" onClick={() => setDeleteMsgConfirm(null)}>Cancel</button>
               <button className="delete-btn" onClick={confirmDeleteGroupMessage}>Delete</button>

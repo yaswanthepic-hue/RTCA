@@ -106,8 +106,6 @@ export const groupAPI = {
   addMembers: (groupId, memberIds) => api.post(`/groups/${groupId}/members`, { memberIds }),
   removeMember: (groupId, memberId) => api.delete(`/groups/${groupId}/members/${memberId}`),
   leaveGroup: (groupId) => api.post(`/groups/${groupId}/leave`),
-  pinGroupMessage: (groupId, messageId) => api.post(`/groups/${groupId}/messages/${messageId}/pin`),
-  unpinGroupMessage: (groupId, messageId) => api.post(`/groups/${groupId}/messages/${messageId}/unpin`),
   deleteGroupMessage: (groupId, messageId) => api.delete(`/groups/${groupId}/messages/${messageId}`),
 };
 

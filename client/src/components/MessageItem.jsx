@@ -35,8 +35,13 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
 
   const handleContextMenu = (e) => {
     e.preventDefault();
-    e.stopPropagation(); // Prevent ChatWindow context menu from showing
-    setContextMenuPos({ x: e.clientX, y: e.clientY });
+    e.stopPropagation(); // Prevent ChatWindow's "Close Chat" menu from showing on a message
+
+    const menuWidth = 190;
+    const menuHeight = 60;
+    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menuHeight - 8);
+    setContextMenuPos({ x: Math.max(8, x), y: Math.max(8, y) });
     setShowContextMenu(true);
   };
 
@@ -48,22 +53,6 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
     } catch (error) {
       console.error('Star message error:', error);
       if (onError) onError('Failed to star message');
-    }
-  };
-
-  const handlePinMessage = async () => {
-    try {
-      if (message.isPinned) {
-        await messageAPI.unpinMessage(message._id);
-        if (onError) onError('Message unpinned!');
-      } else {
-        await messageAPI.pinMessage(message._id);
-        if (onError) onError('Message pinned!');
-      }
-      setShowContextMenu(false);
-    } catch (error) {
-      console.error('Pin message error:', error);
-      if (onError) onError('Failed to pin message');
     }
   };
 
@@ -192,17 +181,17 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
         rel="noopener noreferrer"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="file-icon">
-          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <polyline points="13 2 13 9 20 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points="13 2 13 9 20 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <div className="file-info">
           <p className="file-name">{message.fileName}</p>
           <p className="file-size">{formatFileSize(message.fileSize)}</p>
         </div>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="download-icon">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </a>
     );
@@ -211,8 +200,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
   return (
     <>
       <div
-        className={`message-item ${isSent ? 'sent' : 'received'} ${message.isPinned ? 'pinned' : ''}`}
-        onContextMenu={handleContextMenu}
+        className={`message-item ${isSent ? 'sent' : 'received'}`}
       >
         {!isSent && (
           <img
@@ -221,15 +209,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
             className="message-avatar"
           />
         )}
-        <div className="message-bubble">
-          {message.isPinned && (
-            <div className="pin-indicator">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-              Pinned
-            </div>
-          )}
+        <div className="message-bubble" onContextMenu={handleContextMenu}>
           {renderContent()}
           <div className="message-meta">
             <span className="message-time">{formatTime(message.createdAt)}</span>
@@ -239,18 +219,18 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
                   {message.isRead ? (
                     // Blue double tick - message read
                     <>
-                      <polyline points="9 11 12 14 22 4"/>
-                      <polyline points="4 11 7 14 17 4"/>
+                      <polyline points="9 11 12 14 22 4" />
+                      <polyline points="4 11 7 14 17 4" />
                     </>
                   ) : message.deliveredAt ? (
                     // Gray double tick - message delivered
                     <>
-                      <polyline points="9 11 12 14 22 4"/>
-                      <polyline points="4 11 7 14 17 4"/>
+                      <polyline points="9 11 12 14 22 4" />
+                      <polyline points="4 11 7 14 17 4" />
                     </>
                   ) : (
                     // Gray single tick - message sent
-                    <polyline points="9 11 12 14 22 4"/>
+                    <polyline points="9 11 12 14 22 4" />
                   )}
                 </svg>
               </span>
@@ -267,22 +247,13 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
             style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={handlePinMessage} className="context-menu-item">
+            <button onClick={handleDeleteMessage} className="context-menu-item danger">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
-              {message.isPinned ? 'Unpin' : 'Pin'} Message
+              {isSent ? 'Delete Message' : 'Delete for Me'}
             </button>
-            {isSent && (
-              <button onClick={handleDeleteMessage} className="context-menu-item danger">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-                Delete Message
-              </button>
-            )}
           </div>
         </>
       )}
@@ -290,8 +261,12 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
       {showDeleteConfirm && (
         <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
           <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Delete Message?</h3>
-            <p>Are you sure you want to delete this message? This cannot be undone.</p>
+            <h3>{isSent ? 'Delete for everyone?' : 'Delete for me?'}</h3>
+            <p>
+              {isSent
+                ? 'This message will be deleted for everyone. This cannot be undone.'
+                : 'This will remove the message from your view only. The other person will still see it.'}
+            </p>
             <div className="modal-actions">
               <button className="cancel-btn" onClick={() => setShowDeleteConfirm(false)}>
                 Cancel

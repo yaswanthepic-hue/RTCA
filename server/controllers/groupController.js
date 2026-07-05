@@ -174,7 +174,10 @@ exports.getGroupMessages = async (req, res) => {
     const isMember = group.members.some((m) => m.toString() === req.user._id.toString());
     if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
 
-    const messages = await Message.find({ group: group._id })
+    const messages = await Message.find({
+      group: group._id,
+      deletedFor: { $nin: [req.user._id] }
+    })
       .populate('sender', 'username displayName avatar')
       .sort({ createdAt: 1 });
 
@@ -346,86 +349,49 @@ exports.leaveGroup = async (req, res) => {
 
 exports.postJoinSystemMessage = postJoinSystemMessage;
 
-// ─── Pin a message in a group chat ────────────────────────────────────────
-exports.pinGroupMessage = async (req, res) => {
-  try {
-    const { groupId, messageId } = req.params;
-    const group = await Group.findById(groupId);
-    if (!group) return res.status(404).json({ error: 'Group not found' });
-
-    const isMember = group.members.some((m) => m.toString() === req.user._id.toString());
-    if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
-
-    const message = await Message.findOne({ _id: messageId, group: groupId });
-    if (!message) return res.status(404).json({ error: 'Message not found' });
-
-    message.isPinned = true;
-    await message.save();
-
-    const io = req.app.get('io');
-    if (io) io.to(`group:${groupId}`).emit('groupMessageUpdate', message);
-
-    res.json({ message: 'Message pinned successfully', data: message });
-  } catch (error) {
-    console.error('Pin group message error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
-
-// ─── Unpin a message in a group chat ──────────────────────────────────────
-exports.unpinGroupMessage = async (req, res) => {
-  try {
-    const { groupId, messageId } = req.params;
-    const group = await Group.findById(groupId);
-    if (!group) return res.status(404).json({ error: 'Group not found' });
-
-    const isMember = group.members.some((m) => m.toString() === req.user._id.toString());
-    if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
-
-    const message = await Message.findOne({ _id: messageId, group: groupId });
-    if (!message) return res.status(404).json({ error: 'Message not found' });
-
-    message.isPinned = false;
-    await message.save();
-
-    const io = req.app.get('io');
-    if (io) io.to(`group:${groupId}`).emit('groupMessageUpdate', message);
-
-    res.json({ message: 'Message unpinned successfully', data: message });
-  } catch (error) {
-    console.error('Unpin group message error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
-
-// ─── Delete a message in a group chat (sender only) ───────────────────────
+// ─── Delete a message in a group chat ─────────────────────────────────────
+// Sender deleting their own message -> deleted for everyone in the group.
+// Anyone else deleting a message -> hidden for them only.
 exports.deleteGroupMessage = async (req, res) => {
   try {
     const { groupId, messageId } = req.params;
 
-    const message = await Message.findOne({
-      _id: messageId,
-      group: groupId,
-      sender: req.user._id
-    });
+    const group = await Group.findById(groupId);
+    if (!group) return res.status(404).json({ error: 'Group not found' });
 
-    if (!message) {
-      return res.status(404).json({ error: 'Message not found or unauthorized' });
-    }
+    const isMember = group.members.some((m) => m.toString() === req.user._id.toString());
+    if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
 
-    if (message.fileUrl) {
-      const filePath = path.join(__dirname, '..', message.fileUrl);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    const message = await Message.findOne({ _id: messageId, group: groupId });
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+
+    const isSender = message.sender.toString() === req.user._id.toString();
+
+    if (isSender) {
+      // Delete for everyone
+      if (message.fileUrl) {
+        const filePath = path.join(__dirname, '..', message.fileUrl);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
       }
+
+      await Message.deleteOne({ _id: messageId });
+
+      const io = req.app.get('io');
+      if (io) io.to(`group:${groupId}`).emit('groupMessageDeleted', { messageId, groupId });
+
+      return res.json({ message: 'Message deleted for everyone', deletedForEveryone: true });
     }
 
-    await Message.deleteOne({ _id: messageId });
+    // Delete for me only
+    const alreadyHidden = message.deletedFor.some((id) => id.toString() === req.user._id.toString());
+    if (!alreadyHidden) {
+      message.deletedFor.push(req.user._id);
+      await message.save();
+    }
 
-    const io = req.app.get('io');
-    if (io) io.to(`group:${groupId}`).emit('groupMessageDeleted', { messageId, groupId });
-
-    res.json({ message: 'Message deleted successfully' });
+    res.json({ message: 'Message deleted for you', deletedForEveryone: false });
   } catch (error) {
     console.error('Delete group message error:', error);
     res.status(500).json({ error: 'Server error' });

@@ -75,7 +75,13 @@ const messageSchema = new mongoose.Schema({
   replyTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Message'
-  }
+  },
+  // Users who have chosen to delete this message "for me only" (group chats).
+  // The message still exists for everyone else in this array's absence.
+  deletedFor: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }]
 }, {
   timestamps: true
 });

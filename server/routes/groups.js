@@ -11,8 +11,6 @@ router.get('/:groupId/messages', auth, groupController.getGroupMessages);
 router.post('/:groupId/members', auth, groupController.addMembers);
 router.delete('/:groupId/members/:memberId', auth, groupController.removeMember);
 router.post('/:groupId/leave', auth, groupController.leaveGroup);
-router.post('/:groupId/messages/:messageId/pin', auth, groupController.pinGroupMessage);
-router.post('/:groupId/messages/:messageId/unpin', auth, groupController.unpinGroupMessage);
 router.delete('/:groupId/messages/:messageId', auth, groupController.deleteGroupMessage);
 
 module.exports = router;

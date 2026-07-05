@@ -424,7 +424,6 @@ const ChatWindow = ({ selectedUser, onBack }) => {
 
   const handleEmojiClick = (emojiData) => {
     setMessageInput((prev) => prev + emojiData.emoji);
-    setShowEmojiPicker(false);
   };
 
   const handlePinChat = async () => {
@@ -454,7 +453,11 @@ const ChatWindow = ({ selectedUser, onBack }) => {
 
   const handleRightClick = (e) => {
     e.preventDefault();
-    setContextMenuPos({ x: e.clientX, y: e.clientY });
+    const menuWidth = 170;
+    const menuHeight = 50;
+    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menuHeight - 8);
+    setContextMenuPos({ x: Math.max(8, x), y: Math.max(8, y) });
     setShowContextMenu(true);
   };
 
@@ -605,9 +608,12 @@ const ChatWindow = ({ selectedUser, onBack }) => {
         />
 
         {showEmojiPicker && (
-          <div className="emoji-picker-wrapper">
-            <EmojiPicker onEmojiClick={handleEmojiClick} theme="dark" />
-          </div>
+          <>
+            <div className="emoji-picker-overlay" onClick={() => setShowEmojiPicker(false)} />
+            <div className="emoji-picker-wrapper" onClick={(e) => e.stopPropagation()}>
+              <EmojiPicker onEmojiClick={handleEmojiClick} theme="dark" />
+            </div>
+          </>
         )}
 
         <button
