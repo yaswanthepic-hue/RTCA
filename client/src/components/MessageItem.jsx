@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { messageAPI, authAPI } from '../utils/api';
+import AudioPlayer from './AudioPlayer';
 import './MessageItem.css';
 
 const MessageItem = ({ message, isSent, onError, onDelete }) => {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
 
   const API_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
   const getMessageContent = () => {
@@ -31,6 +33,26 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const handleDownloadImage = async (e) => {
+    e.stopPropagation();
+    try {
+      const url = `${API_URL}${message.fileUrl}`;
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = message.fileName || 'image';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download error:', error);
+      if (onError) onError('Failed to download image');
+    }
   };
 
   const handleContextMenu = (e) => {
@@ -86,6 +108,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
             src={`${API_URL}${message.fileUrl}`}
             alt={message.fileName}
             className="message-image"
+            onClick={(e) => { e.stopPropagation(); setShowImageViewer(true); }}
             onError={(e) => {
               e.target.style.display = 'none';
               const errorDiv = document.createElement('div');
@@ -122,18 +145,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
     if (message.messageType === 'audio' || message.messageType === 'voice') {
       return (
         <div className="message-media">
-          <audio
-            src={`${API_URL}${message.fileUrl}`}
-            controls
-            className="message-audio"
-            onError={(e) => {
-              e.target.style.display = 'none';
-              const errorDiv = document.createElement('div');
-              errorDiv.className = 'media-error';
-              errorDiv.innerHTML = '🎤 Voice message (file temporarily unavailable)';
-              e.target.parentNode.insertBefore(errorDiv, e.target);
-            }}
-          />
+          <AudioPlayer src={`${API_URL}${message.fileUrl}`} />
           {getCaption() && <p className="media-caption">{getCaption()}</p>}
         </div>
       );
@@ -276,6 +288,32 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {showImageViewer && (
+        <div className="image-viewer-overlay" onClick={() => setShowImageViewer(false)}>
+          <button className="image-viewer-close" onClick={() => setShowImageViewer(false)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <img
+            src={`${API_URL}${message.fileUrl}`}
+            alt={message.fileName}
+            className="image-viewer-img"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="image-viewer-download"
+            onClick={handleDownloadImage}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download
+          </button>
         </div>
       )}
     </>

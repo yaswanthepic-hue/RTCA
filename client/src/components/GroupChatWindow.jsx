@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { groupAPI, messageAPI } from '../utils/api';
 import GroupInfoModal from './GroupInfoModal';
+import AudioPlayer from './AudioPlayer';
 import './GroupChatWindow.css';
 
 const API_BASE = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
@@ -18,9 +19,12 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
+  const [fileCaption, setFileCaption] = useState('');
+  const fileCaptionRef = useRef('');
   const [msgContextMenu, setMsgContextMenu] = useState(null); // { x, y, message }
   const [chatContextMenu, setChatContextMenu] = useState(null); // { x, y }
   const [deleteMsgConfirm, setDeleteMsgConfirm] = useState(null); // message pending delete
+  const [imageViewer, setImageViewer] = useState(null); // { url, fileName }
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -186,6 +190,25 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
     setChatContextMenu({ x: Math.max(8, x), y: Math.max(8, y) });
   };
 
+  const handleDownloadImage = async (e, url, fileName) => {
+    e.stopPropagation();
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName || 'image';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download error:', error);
+      showError('Failed to download image');
+    }
+  };
+
   const handleDeleteMessageClick = (message, isSent) => {
     setMsgContextMenu(null);
     setDeleteMsgConfirm({ message, isSent });
@@ -251,8 +274,30 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file || !group) return;
-    setPendingFile(file);
+
+    const type = file.type.startsWith('image/')
+      ? 'image'
+      : file.type.startsWith('video/')
+        ? 'video'
+        : file.type.startsWith('audio/')
+          ? 'audio'
+          : 'file';
+
+    const previewUrl = type === 'image' || type === 'video' || type === 'audio'
+      ? URL.createObjectURL(file)
+      : null;
+
+    setPendingFile({ file, previewUrl, type, name: file.name, size: file.size });
+    setFileCaption('');
+    fileCaptionRef.current = '';
     fileInputRef.current.value = '';
+  };
+
+  const handleCancelFile = () => {
+    if (pendingFile?.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
+    setPendingFile(null);
+    setFileCaption('');
+    fileCaptionRef.current = '';
   };
 
   const handleSendFile = async () => {
@@ -260,23 +305,17 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', pendingFile);
+      formData.append('file', pendingFile.file);
       const uploadResponse = await messageAPI.uploadFile(formData);
       const { fileUrl, fileName, fileSize } = uploadResponse.data;
 
-      const messageType = pendingFile.type.startsWith('image/')
-        ? 'image'
-        : pendingFile.type.startsWith('video/')
-          ? 'video'
-          : pendingFile.type.startsWith('audio/')
-            ? 'audio'
-            : 'file';
-
+      const messageType = pendingFile.type;
       const tempId = Date.now().toString();
+      const caption = fileCaptionRef.current.trim();
 
       socket.emit('sendGroupMessage', {
         groupId: group._id,
-        content: '',
+        content: caption,
         messageType,
         fileUrl,
         fileName,
@@ -289,7 +328,7 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
         tempId,
         sender: { _id: user.id, username: user.username, avatar: user.avatar },
         group: group._id,
-        content: '',
+        content: caption,
         messageType,
         fileUrl,
         fileName,
@@ -299,7 +338,11 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
 
       setMessages((prev) => [...prev, tempMessage]);
       scrollToBottom();
+
+      if (pendingFile.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
       setPendingFile(null);
+      setFileCaption('');
+      fileCaptionRef.current = '';
     } catch (error) {
       console.error('File upload error:', error);
       showError('Failed to upload file');
@@ -448,13 +491,24 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
                   {message.messageType === 'text' || !message.messageType ? (
                     <p className="group-msg-text">{message.content}</p>
                   ) : message.messageType === 'image' ? (
-                    <img src={`${API_BASE}${message.fileUrl}`} alt={message.fileName} className="group-msg-media" />
+                    <>
+                      <img
+                        src={`${API_BASE}${message.fileUrl}`}
+                        alt={message.fileName}
+                        className="group-msg-media"
+                        onClick={(e) => { e.stopPropagation(); setImageViewer({ url: `${API_BASE}${message.fileUrl}`, fileName: message.fileName }); }}
+                      />
+                      {message.content && <p className="group-msg-caption">{message.content}</p>}
+                    </>
                   ) : message.messageType === 'video' ? (
-                    <video src={`${API_BASE}${message.fileUrl}`} controls className="group-msg-media" />
+                    <>
+                      <video src={`${API_BASE}${message.fileUrl}`} controls className="group-msg-media" />
+                      {message.content && <p className="group-msg-caption">{message.content}</p>}
+                    </>
                   ) : message.messageType === 'audio' || message.messageType === 'voice' ? (
-                    <audio src={`${API_BASE}${message.fileUrl}`} controls />
+                    <AudioPlayer src={`${API_BASE}${message.fileUrl}`} />
                   ) : (
-                    <a href={`${API_BASE}${message.fileUrl}`} target="_blank" rel="noreferrer" className="group-msg-file">
+                    <a href={`${API_BASE}${message.fileUrl}`} download={message.fileName} className="group-msg-file">
                       📎 {message.fileName}
                     </a>
                   )}
@@ -512,24 +566,52 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
         <div className="modal-overlay">
           <div className="preview-modal">
             <div className="modal-header">
-              <h3>Send File</h3>
-              <button className="close-modal-btn" onClick={() => setPendingFile(null)}>
+              <h3>Send {pendingFile.type === 'image' ? 'Image' : pendingFile.type === 'video' ? 'Video' : pendingFile.type === 'audio' ? 'Audio' : 'File'}</h3>
+              <button className="close-modal-btn" onClick={handleCancelFile}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
+
             <div className="file-preview-body">
-              <div className="file-preview-generic">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-                  <polyline points="13 2 13 9 20 9" />
-                </svg>
-                <p className="file-preview-name">{pendingFile.name}</p>
-              </div>
+              {pendingFile.type === 'image' && (
+                <img src={pendingFile.previewUrl} alt="preview" className="file-preview-image" />
+              )}
+              {pendingFile.type === 'video' && (
+                <video src={pendingFile.previewUrl} controls className="file-preview-video" />
+              )}
+              {pendingFile.type === 'audio' && (
+                <AudioPlayer src={pendingFile.previewUrl} />
+              )}
+              {pendingFile.type === 'file' && (
+                <div className="file-preview-generic">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                    <polyline points="13 2 13 9 20 9" />
+                  </svg>
+                  <p className="file-preview-name">{pendingFile.name}</p>
+                  <p className="file-preview-size">
+                    {pendingFile.size < 1024 * 1024
+                      ? (pendingFile.size / 1024).toFixed(1) + ' KB'
+                      : (pendingFile.size / (1024 * 1024)).toFixed(1) + ' MB'}
+                  </p>
+                </div>
+              )}
             </div>
+
+            <div className="file-caption-row">
+              <input
+                type="text"
+                placeholder="Add a caption…"
+                value={fileCaption}
+                onChange={(e) => { setFileCaption(e.target.value); fileCaptionRef.current = e.target.value; }}
+                className="file-caption-input"
+              />
+            </div>
+
             <div className="modal-actions">
-              <button className="cancel-btn" onClick={() => setPendingFile(null)} disabled={uploading}>Cancel</button>
+              <button className="cancel-btn" onClick={handleCancelFile} disabled={uploading}>Cancel</button>
               <button className="send-file-btn" onClick={handleSendFile} disabled={uploading}>
                 {uploading ? 'Sending…' : 'Send'}
               </button>
@@ -539,6 +621,33 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
       )}
 
       {errorMessage && <div className="error-toast">{errorMessage}</div>}
+
+      {imageViewer && (
+        <div className="image-viewer-overlay" onClick={() => setImageViewer(null)}>
+          <button className="image-viewer-close" onClick={() => setImageViewer(null)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <img
+            src={imageViewer.url}
+            alt={imageViewer.fileName}
+            className="image-viewer-img"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="image-viewer-download"
+            onClick={(e) => handleDownloadImage(e, imageViewer.url, imageViewer.fileName)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download
+          </button>
+        </div>
+      )}
 
       {/* ── Message Context Menu (Delete) ── */}
       {msgContextMenu && (

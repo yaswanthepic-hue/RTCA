@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { messageAPI, authAPI } from '../utils/api';
 import MessageItem from './MessageItem';
+import AudioPlayer from './AudioPlayer';
 import EmojiPicker from 'emoji-picker-react';
 import './ChatWindow.css';
 
@@ -712,7 +713,7 @@ const ChatWindow = ({ selectedUser, onBack }) => {
             </div>
             <div className="voice-preview-body">
               <div className="voice-preview-icon">🎤</div>
-              <audio key={voicePreview.url} src={voicePreview.url} controls preload="auto" className="voice-preview-audio" />
+              <AudioPlayer key={voicePreview.url} src={voicePreview.url} />
               <p className="voice-preview-duration">{formatRecordingTime(recordingSeconds)}</p>
             </div>
             <div className="modal-actions">

@@ -80,6 +80,15 @@
   max-height: 240px;
   border-radius: 8px;
   object-fit: cover;
+  cursor: pointer;
+}
+
+.group-msg-caption {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  margin-top: 0.35rem;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .group-msg-file {
