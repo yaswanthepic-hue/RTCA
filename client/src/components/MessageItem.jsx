@@ -9,7 +9,8 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
 
-  const API_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+  const API_URL = import.meta.env.VITE_SOCKET_URL || '';
+
   const getMessageContent = () => {
     return message.content || '';
   };
@@ -213,6 +214,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
     <>
       <div
         className={`message-item ${isSent ? 'sent' : 'received'}`}
+        onContextMenu={handleContextMenu}
       >
         {!isSent && (
           <img
@@ -221,7 +223,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
             className="message-avatar"
           />
         )}
-        <div className="message-bubble" onContextMenu={handleContextMenu}>
+        <div className="message-bubble">
           {renderContent()}
           <div className="message-meta">
             <span className="message-time">{formatTime(message.createdAt)}</span>
@@ -250,6 +252,7 @@ const MessageItem = ({ message, isSent, onError, onDelete }) => {
           </div>
         </div>
       </div>
+
 
       {showContextMenu && (
         <>

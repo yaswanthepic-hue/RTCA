@@ -256,7 +256,9 @@ io.on('connection', (socket) => {
       // own copy via the 'groupMessageSent' ack below — emitting to the full
       // room here (including this socket) was causing sent messages to show
       // up twice on the sender's screen.
-      socket.to(`group:${groupId}`).emit('receiveGroupMessage', message);
+      // We include tempId so recipient-side dedup logic can match it as well.
+      const messageWithTempId = message.toObject ? { ...message.toObject(), tempId } : { ...message, tempId };
+      socket.to(`group:${groupId}`).emit('receiveGroupMessage', messageWithTempId);
 
       socket.emit('groupMessageSent', { tempId, message });
     } catch (error) {

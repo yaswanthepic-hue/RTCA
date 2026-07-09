@@ -4,7 +4,10 @@ import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+// In development the Vite dev-server proxies /socket.io → backend so the real
+// server URL never appears in the browser network tab.
+// In production, VITE_SOCKET_URL must point to the deployed backend.
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '/';
 
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);

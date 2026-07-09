@@ -7,7 +7,8 @@ import AudioPlayer from './AudioPlayer';
 import EmojiPicker from 'emoji-picker-react';
 import './ChatWindow.css';
 
-const API_BASE = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_SOCKET_URL || '';
+
 
 const ChatWindow = ({ selectedUser, onBack }) => {
   const { user } = useAuth();

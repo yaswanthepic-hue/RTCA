@@ -292,9 +292,10 @@ exports.getUnreadPerConversation = async (req, res) => {
   }
 };
 
-// Delete message (only sender can delete their own messages)
+// Delete message (only sender can delete for everyone; recipient can only hide)
 exports.deleteMessage = async (req, res) => {
   try {
+    // Only allow participants of this message to delete it
     const message = await Message.findOne({
       _id: req.params.messageId,
       $or: [{ sender: req.userId }, { recipient: req.userId }]
@@ -307,7 +308,7 @@ exports.deleteMessage = async (req, res) => {
     const isSender = message.sender.toString() === req.userId;
 
     if (isSender) {
-      // Delete for everyone
+      // Sender → delete for everyone (hard delete + broadcast)
       if (message.fileUrl) {
         const filePath = path.join(__dirname, '..', message.fileUrl);
         if (fs.existsSync(filePath)) {
@@ -318,12 +319,14 @@ exports.deleteMessage = async (req, res) => {
       await Message.deleteOne({ _id: req.params.messageId });
 
       const io = req.app.get('io');
-      io.to(message.sender.toString()).to(message.recipient.toString()).emit('messageDeleted', { messageId: req.params.messageId });
+      io.to(message.sender.toString())
+        .to(message.recipient.toString())
+        .emit('messageDeleted', { messageId: req.params.messageId });
 
       return res.json({ message: 'Message deleted for everyone', deletedForEveryone: true });
     }
 
-    // Delete for me only (recipient hiding a message they didn't send)
+    // Recipient → soft-delete for themselves only (hide the message)
     const alreadyHidden = message.deletedFor.some((id) => id.toString() === req.userId);
     if (!alreadyHidden) {
       message.deletedFor.push(req.userId);

@@ -6,7 +6,8 @@ import GroupInfoModal from './GroupInfoModal';
 import AudioPlayer from './AudioPlayer';
 import './GroupChatWindow.css';
 
-const API_BASE = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_SOCKET_URL || '';
+
 
 const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
   const { user } = useAuth();
@@ -43,7 +44,18 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
     const handleReceiveGroupMessage = (message) => {
       if (message.group !== group._id && message.group?._id !== group._id) return;
       setMessages((prev) => {
-        if (prev.some((m) => String(m._id) === String(message._id))) return prev;
+        // Dedup by real _id OR by tempId (covers the race where groupMessageSent
+        // hasn't replaced the temp entry yet when receiveGroupMessage arrives)
+        const alreadyExists = prev.some(
+          (m) =>
+            String(m._id) === String(message._id) ||
+            (message.tempId && m.tempId === message.tempId)
+        );
+        if (alreadyExists) return prev;
+        // Also replace a pending temp entry whose tempId matches
+        if (message.tempId && prev.some((m) => m.tempId === message.tempId)) {
+          return prev.map((m) => (m.tempId === message.tempId ? message : m));
+        }
         return [...prev, message];
       });
       scrollToBottom();
@@ -55,8 +67,16 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
     };
 
     const handleGroupMessageSent = (data) => {
-      setMessages((prev) =>
-        prev.map((m) => {
+      setMessages((prev) => {
+        // Check if the real message is already in the list (added via receiveGroupMessage)
+        const alreadyReal = prev.some(
+          (m) => m.tempId !== data.tempId && String(m._id) === String(data.message._id)
+        );
+        if (alreadyReal) {
+          // Just remove the temp entry; the real one is already there
+          return prev.filter((m) => m.tempId !== data.tempId);
+        }
+        return prev.map((m) => {
           if (m.tempId !== data.tempId) return m;
           // Preserve any status update that may have already arrived for this
           // message before the ack (e.g. a fast reader marking it read).
@@ -65,8 +85,8 @@ const GroupChatWindow = ({ group, onBack, onGroupUpdated, onGroupLeft }) => {
             deliveredCount: Math.max(m.deliveredCount || 0, data.message.deliveredTo?.length || 0),
             readCount: Math.max(m.readCount || 0, data.message.readBy?.length || 0),
           };
-        })
-      );
+        });
+      });
     };
 
     const handleGroupMessageStatusUpdate = (data) => {
